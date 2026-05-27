@@ -52,15 +52,12 @@ const CinematicStudio: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2 text-white/70 hover:text-white cursor-pointer">
-            <span>Gallery</span>
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2 text-white/70 hover:text-white cursor-pointer">
+              <span>Gallery</span>
+            </div>
+            <button className="px-5 py-2 rounded-full border border-white/20 hover:bg-white/5 transition text-sm">Sign In</button>
           </div>
-          <div className="flex items-center gap-2 text-white/70 hover:text-white cursor-pointer">
-            <span>Vault</span>
-          </div>
-          <button className="px-5 py-2 rounded-full border border-white/20 hover:bg-white/5 transition text-sm">Sign In</button>
-        </div>
       </nav>
 
       {/* Main Content Area - Matching the screenshot layout */}
@@ -146,27 +143,17 @@ const CinematicStudio: React.FC = () => {
               </div>
 
               <div className="text-[10px] text-white/40 mt-4">
-                Powered by Cloudflare AI • FLUX.1 • Llama 3.3 • Vectorize Memory
+                Powered by Cloudflare AI • FLUX.1 • Llama 3.3
               </div>
             </div>
           </div>
 
-          {/* Right: Memory Vault */}
+          {/* Right: Placeholder (Memory Vault disabled on free plan) */}
           <div className="lg:col-span-3">
-            <div className="glass rounded-3xl p-6 h-full">
-              <div className="font-semibold mb-4">Memory Vault</div>
-              <div className="text-xs text-white/50 mb-3">Vectorize • Character Consistency</div>
-
-              <input 
-                type="text" 
-                placeholder="Search characters..." 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm mb-4 focus:outline-none"
-              />
-
-              <div className="space-y-2 text-sm">
-                <div className="memory-chip cursor-pointer">Cyberpunk Samurai</div>
-                <div className="memory-chip cursor-pointer">Neon Knight</div>
-                <div className="memory-chip cursor-pointer">Future Tokyo Rain</div>
+            <div className="glass rounded-3xl p-6 h-full flex flex-col items-center justify-center text-center">
+              <div className="font-semibold mb-2">Memory Vault</div>
+              <div className="text-sm text-white/60">
+                Coming soon.<br />Requires a paid Cloudflare plan.
               </div>
             </div>
           </div>

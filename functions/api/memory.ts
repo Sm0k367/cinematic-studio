@@ -1,17 +1,7 @@
-// Memory Vault API — semantic search + insert
+// Memory Vault API — temporarily disabled (free plan limitation)
 export async function onRequestPost(context: EventContext<any>) {
-  const { request, env } = context;
-  const body = await request.json();
-
-  // Example: query Vectorize
-  if (body.action === 'search' && body.query) {
-    const embedding = await env.AI.run('@cf/baai/bge-base-en-v1.5', { text: [body.query] });
-    const vector = embedding.data?.[0];
-    
-    const results = await env.VECTORIZE_INDEX.query(vector, { topK: 8, returnMetadata: true });
-    
-    return Response.json({ results: results.matches || [] });
-  }
-
-  return Response.json({ success: true, message: "Memory operation complete" });
+  return Response.json({ 
+    success: false, 
+    message: "Memory Vault is not available on the free plan. Upgrade required." 
+  });
 }

@@ -8,14 +8,14 @@
  * Orchestrates:
  * 1. WRITER (Llama 3.3 70B) — rich scene script
  * 2. DIRECTOR — cinematic prompt engineering
- * 3. EDITOR — FLUX.1 generation + R2 upload + Vectorize memory
+ * 3. EDITOR — FLUX.1 generation + R2 upload (Vectorize memory optional)
  */
 
 interface Env {
   AI: any;                    // Cloudflare AI binding
   MEDIA_BUCKET: R2Bucket;     // R2 for permanent public assets
   KV: KVNamespace;
-  VECTORIZE_INDEX: VectorizeIndex;
+  VECTORIZE_INDEX?: VectorizeIndex;   // Optional - not available on free plan
 }
 
 interface CinematicRequest {
@@ -145,17 +145,22 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
 
     const embedding = embeddingResp?.data?.[0] || embeddingResp?.result?.data?.[0];
 
-    if (embedding) {
-      await env.VECTORIZE_INDEX.upsert([{
-        id: imageId,
-        values: embedding,
-        metadata: {
-          prompt: prompt,
-          imageUrl: publicImageUrl,
-          created: Date.now(),
-          type: 'cinematic-generation'
-        }
-      }]);
+    // Only index to Vectorize if the binding exists (disabled on free plan)
+    if (embedding && env.VECTORIZE_INDEX) {
+      try {
+        await env.VECTORIZE_INDEX.upsert([{
+          id: imageId,
+          values: embedding,
+          metadata: {
+            prompt: prompt,
+            imageUrl: publicImageUrl,
+            created: Date.now(),
+            type: 'cinematic-generation'
+          }
+        }]);
+      } catch (e) {
+        console.log("Vectorize indexing skipped (not available on current plan)");
+      }
     }
 
     // =====================================================

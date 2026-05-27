@@ -1,5 +1,4 @@
 name = "cinematic-ai-studio"
-account_id = "4f00441f1f72053ee62f67d115615dc2"
 compatibility_date = "2025-05-27"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
@@ -13,7 +12,7 @@ bucket_name = "cinematic-ai-media"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "your-kv-id-here"   # Update this after creating the KV namespace
+id = "your-kv-id-here"   # Replace with your actual KV namespace ID
 
 [[vectorize]]
 binding = "MEMORY"

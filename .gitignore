@@ -16,6 +16,19 @@ dist-ssr
 .wrangler
 .dev.vars
 .env*.local
+.env
+.env.local
+.env.*.local
+
+# Secrets & API Keys (never commit)
+*.pem
+*.key
+secrets/
+*.token
+cfat_*
+ghp_*
+
+# Logs
 *.log
 
 # Screenshots (local only)

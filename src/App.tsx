@@ -143,7 +143,7 @@ const CinematicStudio: React.FC = () => {
               </div>
 
               <div className="text-[10px] text-white/40 mt-4">
-                Powered by Cloudflare AI • FLUX.1 • Llama 3.3
+                Powered by Cloudflare AI • FLUX.1-dev (highest quality) • Llama 3.3-70B
               </div>
             </div>
           </div>

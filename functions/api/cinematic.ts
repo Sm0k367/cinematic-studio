@@ -8,7 +8,7 @@
  * Orchestrates:
  * 1. WRITER (Llama 3.3 70B) — rich scene script
  * 2. DIRECTOR — cinematic prompt engineering
- * 3. EDITOR — FLUX.1 generation + R2 upload (Vectorize memory optional)
+ * 3. EDITOR — Highest quality FLUX.1-dev generation + R2 upload (Vectorize memory optional)
  */
 
 interface Env {
@@ -96,11 +96,12 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
     const finalVisualPrompt = `${directorText} Highly detailed, cinematic masterpiece, 8k, film still, professional photography, sharp focus.`;
 
     // =====================================================
-    // 3. EDITOR — Generate with FLUX.1 (schnell for speed, or dev)
+    // 3. EDITOR — Generate with highest quality FLUX.1-dev
     // =====================================================
-    const fluxResponse = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', {
+    // Using the highest quality image model available
+    const fluxResponse = await env.AI.run('@cf/black-forest-labs/flux-1-dev', {
       prompt: finalVisualPrompt,
-      num_steps: 4,           // fast high-quality
+      num_steps: 28,          // Higher quality settings
       guidance: 3.5,
     });
 
@@ -173,7 +174,7 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
       director: directorText,
       imageUrl: publicImageUrl,
       created: new Date().toISOString(),
-      model: 'flux-1-schnell + llama-3.3-70b',
+      model: 'flux-1-dev + llama-3.3-70b',
     };
 
     await env.KV.put(`gen:${imageId}`, JSON.stringify(metadata), {
@@ -192,7 +193,7 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
           director: directorText,
         },
         metadata: {
-          model: 'FLUX.1-schnell + Llama-3.3-70B + BGE',
+            model: 'FLUX.1-dev + Llama-3.3-70B',
           style: 'Cinematic',
         }
       }

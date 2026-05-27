@@ -2,13 +2,13 @@
 
 A premium AI-powered cinematic creation studio built on Cloudflare.
 
-Describe scenes. Collaborate with AI agents (Writer → Director → Editor). Generate studio-quality images with FLUX.1. Experience a live 3D cyberpunk environment. Store everything permanently in R2 with semantic memory via Vectorize.
+Describe scenes. Collaborate with AI agents (Writer → Director → Editor). Generate studio-quality images with FLUX.1-dev (highest quality). Experience a live 3D cyberpunk environment. Store everything permanently in R2.
 
 **Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2 + Vectorize
 
 ## Features
 
-- Multi-agent cinematic pipeline (Llama 3.3 + FLUX.1)
+- Multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev highest quality)
 - Immersive 3D environment
 - Clean, cinematic UI
 - Voice input

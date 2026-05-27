@@ -4,13 +4,13 @@ A premium AI-powered cinematic creation studio built on Cloudflare.
 
 Describe scenes. Collaborate with AI agents (Writer → Director → Editor). Generate studio-quality images with FLUX.1. Experience a live 3D cyberpunk environment. Store everything permanently in R2 with semantic memory via Vectorize.
 
-**Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2 + Vectorize + D1 (ready)
+**Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2 + Vectorize
 
 ## Features
 
 - Multi-agent cinematic pipeline (Llama 3.3 + FLUX.1)
-- Immersive 3D environment with floating reels, cameras, and neon
-- Glassmorphism + neon cyberpunk UI
+- Immersive 3D environment
+- Clean, cinematic UI
 - Voice input
 - Memory Vault with Vectorize
 - R2 permanent storage
@@ -22,13 +22,34 @@ npm install
 npm run dev
 ```
 
-## Deploy to Cloudflare
+## Deploy to Cloudflare (Recommended)
 
-1. Create resources (R2, Vectorize, D1, KV)
-2. Update `wrangler.toml` with your IDs
-3. Run `npm run deploy`
+This repo is set up for automatic deployment via GitHub Actions.
 
-See `CF-CAPABILITIES.md` for the full future-proof architecture.
+### One-time Setup
+
+1. In your GitHub repo, go to **Settings → Secrets and variables → Actions**
+2. Add these two secrets:
+   - `CLOUDFLARE_API_TOKEN` → Your Cloudflare API token (with Pages + Workers permissions)
+   - `CLOUDFLARE_ACCOUNT_ID` → `4f00441f1f72053ee62f67d115615dc2`
+
+3. In Cloudflare Dashboard, create these resources (use exact names):
+   - R2 bucket: `cinematic-ai-media`
+   - Vectorize index: `cinematic-memory-vault` (768 dimensions, cosine)
+   - KV namespace (note the ID)
+   - (Optional) D1 database
+
+4. Update `wrangler.toml` with your KV ID.
+
+5. Connect the repo in Cloudflare Pages (or just push — the workflow will deploy).
+
+Every push to `main` will automatically build and deploy.
+
+## Manual Deploy (if needed)
+
+```bash
+npm run deploy
+```
 
 ## License
 

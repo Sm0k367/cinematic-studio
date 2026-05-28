@@ -4,15 +4,14 @@ A premium AI-powered cinematic creation studio built on Cloudflare.
 
 Describe scenes. Collaborate with AI agents (Writer → Director → Editor). Generate studio-quality images with FLUX.1-dev (highest quality). Experience a live 3D cyberpunk environment. Store everything permanently in R2.
 
-**Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2 + Vectorize
+**Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2
 
 ## Features
 
-- Multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev highest quality)
+- Multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev)
 - Immersive 3D environment
 - Clean, cinematic UI
 - Voice input
-- Memory Vault with Vectorize
 - R2 permanent storage
 
 ## Local Development
@@ -22,34 +21,36 @@ npm install
 npm run dev
 ```
 
-## Deploy to Cloudflare (Recommended)
+## Deploy to Cloudflare Pages (Easiest Method)
 
-This repo is set up for automatic deployment via GitHub Actions.
+This repo is optimized for direct Git deployment via Cloudflare Pages.
 
-### One-time Setup
+### Steps
 
-1. In your GitHub repo, go to **Settings → Secrets and variables → Actions**
-2. Add these two secrets:
-   - `CLOUDFLARE_API_TOKEN` → Your Cloudflare API token (with Pages + Workers permissions)
-   - `CLOUDFLARE_ACCOUNT_ID` → `4f00441f1f72053ee62f67d115615dc2`
+1. In Cloudflare Dashboard → **Pages** → **Create a project** → **Connect to Git**
 
-3. In Cloudflare Dashboard, create these resources (use exact names):
-   - R2 bucket: `cinematic-ai-media`
-   - Vectorize index: `cinematic-memory-vault` (768 dimensions, cosine)
-   - KV namespace (note the ID)
-   - (Optional) D1 database
+2. Select the repository `Sm0k367/cinematic-studio`
 
-4. Update `wrangler.toml` with your KV ID.
+3. Use these exact build settings:
+   - **Framework preset**: None
+   - **Build command**: `npm run build`
+   - **Build output directory**: `dist`
+   - **Root directory**: Leave as `/`
 
-5. Connect the repo in Cloudflare Pages (or just push — the workflow will deploy).
+4. Click **Save and Deploy**
 
-Every push to `main` will automatically build and deploy.
+5. After the first successful deployment, go to **Settings → Bindings** and add:
+   - AI → `AI`
+   - R2 Bucket → `cinematic-ai-media` (binding name: `MEDIA`)
+   - KV Namespace (binding name: `KV`)
+   - Vectorize (binding name: `MEMORY`) ← Only if you have a paid plan
 
-## Manual Deploy (if needed)
+Every future push to `main` will automatically redeploy.
 
-```bash
-npm run deploy
-```
+## Notes for Free Plan Users
+
+- Memory Vault is temporarily disabled (requires Vectorize, which needs a paid plan).
+- The rest of the studio works normally.
 
 ## License
 

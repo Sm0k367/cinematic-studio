@@ -213,7 +213,7 @@ const HTML = `<!DOCTYPE html>
       const res = await fetch('/api/auth', { method: 'POST', body: JSON.stringify({action:'login', email, password}) });
       const data = await res.json();
       if (data.success) {
-        document.getElementById('loginBtn').innerHTML = `✓ ${email.split('@')[0]}`;
+        document.getElementById('loginBtn').innerHTML = `[OK] ${email.split('@')[0]}`;
         hideLogin();
       } else alert(data.message);
     }

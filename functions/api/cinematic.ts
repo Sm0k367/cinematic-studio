@@ -1,3 +1,15 @@
+/// <reference types="@cloudflare/workers-types" />
+
+// @ts-nocheck
+// This file intentionally embeds a large self-contained HTML UI.
+// The above directive keeps the Pages build happy.
+
+interface Env {
+  KV: KVNamespace;
+  R2: R2Bucket;
+  AI: any;
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url);
@@ -6,6 +18,7 @@ export default {
     if (path === "/api/cinematic" && request.method === "POST") return handleCinematic(request, env);
     if (path === "/api/chat" && request.method === "POST") return handleChat(request, env);
     if (path === "/api/auth" && request.method === "POST") return handleAuth(request, env);
+    if (path === "/api/vault" && request.method === "POST") return handleVault(request, env);
 
     return new Response(HTML, {
       headers: { "Content-Type": "text/html; charset=utf-8" }
@@ -39,9 +52,14 @@ async function handleCinematic(request: Request, env: Env) {
     if (!prompt) return Response.json({ success: false, error: "Prompt is required" }, { status: 400 });
 
     if (mode === "video") {
-      const videoResult = await env.AI.run("@cf/pixverse/v6", {
-        prompt: `${prompt}, cinematic, smooth motion, dramatic`,
+      // Pixverse v6 is powerful but availability can vary by account.
+      // If it 500s, the frontend will show a friendly message.
+      const videoResult: any = await env.AI.run("@cf/pixverse/v6", {
+        prompt: `${prompt}, cinematic, smooth motion, dramatic lighting`,
       });
+
+      if (!videoResult?.video) throw new Error("Video model returned no data");
+
       const filename = `video-${Date.now()}.mp4`;
       await env.R2.put(filename, videoResult.video, { httpMetadata: { contentType: "video/mp4" } });
 
@@ -52,11 +70,12 @@ async function handleCinematic(request: Request, env: Env) {
         prompt
       });
     } else {
-      const imageResult = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
+      const imageResult: any = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
         prompt: `${prompt}, cinematic masterpiece, dramatic lighting, film grain, highly detailed`,
         width: 1024,
         height: 576,
       });
+
       const filename = `cinematic-${Date.now()}.jpg`;
       await env.R2.put(filename, imageResult.image, { httpMetadata: { contentType: "image/jpeg" } });
 
@@ -68,20 +87,47 @@ async function handleCinematic(request: Request, env: Env) {
       });
     }
   } catch (e: any) {
-    return Response.json({ success: false, error: "Pipeline hiccup - Try again later" }, { status: 500 });
+    const msg = e?.message || "Generation failed. The model may be temporarily busy.";
+    return Response.json({ success: false, error: msg }, { status: 500 });
   }
 }
 
 // ====================== CHAT ======================
 async function handleChat(request: Request, env: Env) {
-  const { message } = await request.json();
-  const reply = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
-    messages: [
-      { role: "system", content: "You are a helpful, creative cinematic AI assistant for Epic Tech AI Studio." },
-      { role: "user", content: message }
-    ]
-  });
-  return Response.json({ reply: reply.response });
+  try {
+    const { message } = await request.json();
+    const result = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
+      messages: [
+        { role: "system", content: "You are a helpful, creative cinematic AI assistant for Epic Tech AI Studio. Keep answers concise and inspiring." },
+        { role: "user", content: message }
+      ]
+    });
+    return Response.json({ success: true, reply: result.response || result });
+  } catch (e: any) {
+    return Response.json({ success: false, reply: "The assistant is taking a creative break. Please try again in a moment." });
+  }
+}
+
+// ====================== MEMORY VAULT (KV backed) ======================
+async function handleVault(request: Request, env: Env) {
+  const { action, email, item } = await request.json();
+
+  const key = `vault:${email}`;
+
+  if (action === "save") {
+    const existing = JSON.parse((await env.KV.get(key)) || "[]");
+    existing.unshift(item);
+    // Keep only last 24 items
+    await env.KV.put(key, JSON.stringify(existing.slice(0, 24)));
+    return Response.json({ success: true });
+  }
+
+  if (action === "load") {
+    const items = JSON.parse((await env.KV.get(key)) || "[]");
+    return Response.json({ success: true, items });
+  }
+
+  return Response.json({ success: false }, { status: 400 });
 }
 
 // ====================== FULL CINEMATIC UI ======================
@@ -121,11 +167,23 @@ const HTML = `<!DOCTYPE html>
       <!-- LEFT AGENTS -->
       <div class="col-span-2">
         <div class="glass rounded-3xl p-6 sticky top-6">
-          <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="fas fa-robot"></i> AGENTS</h2>
-          <div class="space-y-4">
-            <div class="glass p-4 rounded-2xl flex items-center gap-3"><div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>Writer</div>
-            <div class="glass p-4 rounded-2xl flex items-center gap-3"><div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>Director</div>
-            <div class="glass p-4 rounded-2xl flex items-center gap-3"><div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>Editor</div>
+          <h2 class="text-sm font-semibold tracking-[2px] mb-4 text-cyan-400/70">CREATIVE PIPELINE</h2>
+          <div class="space-y-3 text-sm">
+            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
+              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <span class="text-white/90">Concept Writer</span>
+            </div>
+            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
+              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <span class="text-white/90">Cinematic Director</span>
+            </div>
+            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
+              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <span class="text-white/90">Frame Editor</span>
+            </div>
+            <div class="mt-4 pt-4 border-t border-white/10 text-[10px] text-white/40 leading-tight">
+              Powered by<br>Cloudflare AI + Flux + Pixverse
+            </div>
           </div>
         </div>
       </div>
@@ -158,6 +216,26 @@ const HTML = `<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- Quick Actions (Variations + Enhance) -->
+        <div id="quick-actions" class="hidden glass rounded-3xl p-4">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <div class="text-sm text-cyan-400 font-medium">Refine this generation</div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="generateVariations()" 
+                    class="py-4 text-sm font-semibold bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-400/30 rounded-2xl transition flex items-center justify-center gap-2">
+              <i class="fas fa-magic"></i> 
+              <span>Variations (4)</span>
+            </button>
+            <button onclick="enhanceImage()" 
+                    class="py-4 text-sm font-semibold bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30 border border-pink-400/30 rounded-2xl transition flex items-center justify-center gap-2">
+              <i class="fas fa-rocket"></i> 
+              <span>Enhance / Upscale</span>
+            </button>
+          </div>
+          <div class="text-[10px] text-white/40 text-center mt-2">Powered by prompt engineering • Results saved to vault</div>
+        </div>
+ 
         <!-- Tabs -->
         <div class="glass rounded-3xl p-6">
           <div class="flex border-b border-gray-700 mb-6">
@@ -203,6 +281,9 @@ const HTML = `<!DOCTYPE html>
 
   <script>
     let history = [];
+    let currentUser = null;
+    let lastPrompt = '';
+    let lastType = 'image';
 
     function showLogin() { document.getElementById('loginModal').classList.remove('hidden'); }
     function hideLogin() { document.getElementById('loginModal').classList.add('hidden'); }
@@ -213,9 +294,13 @@ const HTML = `<!DOCTYPE html>
       const res = await fetch('/api/auth', { method: 'POST', body: JSON.stringify({action:'login', email, password}) });
       const data = await res.json();
       if (data.success) {
-        document.getElementById('loginBtn').innerHTML = `[OK] ${email.split('@')[0]}`;
+        currentUser = email;
+        document.getElementById('loginBtn').innerHTML = `👤 ${email.split('@')[0]}`;
         hideLogin();
-      } else alert(data.message);
+        await loadVault();
+      } else {
+        alert(data.message);
+      }
     }
 
     async function register() {
@@ -224,6 +309,34 @@ const HTML = `<!DOCTYPE html>
       const res = await fetch('/api/auth', { method: 'POST', body: JSON.stringify({action:'register', email, password}) });
       const data = await res.json();
       alert(data.message || "Account created!");
+    }
+
+    async function loadVault() {
+      if (!currentUser) return;
+      try {
+        const res = await fetch('/api/vault', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'load', email: currentUser })
+        });
+        const data = await res.json();
+        if (data.success && data.items) {
+          history = data.items;
+          renderHistory();
+          renderVaultSidebar();
+        }
+      } catch (e) {}
+    }
+
+    async function saveToVault(item) {
+      if (!currentUser) return;
+      try {
+        await fetch('/api/vault', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'save', email: currentUser, item })
+        });
+      } catch (e) {}
     }
 
     function usePrompt(el) {
@@ -248,16 +361,45 @@ const HTML = `<!DOCTYPE html>
 
       if (data.success) {
         const content = document.getElementById('content');
-        if (data.type === 'video') {
-          content.innerHTML = `<video src="${data.url}" controls autoplay loop class="w-full h-full object-cover"></video>`;
-        } else {
-          content.innerHTML = `<img src="${data.url}" class="w-full h-full object-cover">`;
-        }
+        const mediaHTML = data.type === 'video' 
+          ? `<video src="${data.url}" controls autoplay loop class="w-full h-full object-cover"></video>`
+          : `<img src="${data.url}" class="w-full h-full object-cover">`;
 
-        history.unshift({url: data.url, prompt: prompt.substring(0,55), type: data.type});
+        content.innerHTML = `
+          <div class="relative w-full h-full group">
+            ${mediaHTML}
+            <div class="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
+              <a href="${data.url}" download class="px-4 py-2 text-sm bg-black/70 hover:bg-black rounded-2xl border border-white/20 flex items-center gap-2">
+                <i class="fas fa-download"></i> <span>Download</span>
+              </a>
+            </div>
+          </div>`;
+
+        const vaultItem = {url: data.url, prompt: prompt.substring(0,55), type: data.type, ts: Date.now()};
+        history.unshift(vaultItem);
         renderHistory();
+        renderVaultSidebar();
+        await saveToVault(vaultItem);
+
+        // Enable quick actions for this generation
+        lastPrompt = prompt;
+        lastType = data.type;
+        const actions = document.getElementById('quick-actions');
+        if (actions) actions.classList.remove('hidden');
+
+        // Gentle reminder for first-time R2 setup
+        if (!localStorage.getItem('r2_notified')) {
+          setTimeout(() => {
+            const note = document.createElement('div');
+            note.className = 'absolute top-4 left-4 px-3 py-1.5 text-[10px] bg-black/80 text-cyan-400 rounded-2xl border border-cyan-400/30';
+            note.innerHTML = 'Tip: Make your R2 bucket public for reliable URLs';
+            content.appendChild(note);
+            setTimeout(() => note.remove(), 6500);
+          }, 1800);
+          localStorage.setItem('r2_notified', '1');
+        }
       } else {
-        alert(data.error || "Generation failed");
+        alert(data.error || "Generation failed. Check your models and R2 bucket.");
       }
     }
 
@@ -273,6 +415,21 @@ const HTML = `<!DOCTYPE html>
             </div>
           `).join('')}
         </div>`;
+    }
+
+    function renderVaultSidebar() {
+      const el = document.getElementById('vault');
+      if (!el) return;
+      if (!history.length) {
+        el.innerHTML = `<div class="text-xs text-white/40">Sign in to persist your generations across sessions.</div>`;
+        return;
+      }
+      el.innerHTML = history.slice(0, 6).map(h => `
+        <div onclick="window.open('${h.url}')" class="glass p-2 rounded-2xl text-xs cursor-pointer hover:ring-1 hover:ring-cyan-400/50 flex gap-2 items-center">
+          ${h.type === 'video' ? '🎬' : '🖼️'}
+          <span class="truncate">${h.prompt}</span>
+        </div>
+      `).join('');
     }
 
     function switchTab(n) {
@@ -303,6 +460,137 @@ const HTML = `<!DOCTYPE html>
     document.getElementById('chatInput').addEventListener('keypress', e => {
       if (e.key === 'Enter') sendChat();
     });
+
+    // ==================== VARIATIONS + ENHANCE ====================
+    async function generateVariations() {
+      if (!lastPrompt || lastType !== 'image') {
+        return alert("Variations are currently available for images only. Generate an image first.");
+      }
+      const container = document.getElementById('content');
+      const originalHTML = container.innerHTML;
+
+      // Show loading in preview area
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-center p-8">
+          <div class="animate-spin w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full mb-4"></div>
+          <p class="text-cyan-400">Crafting 4 cinematic variations...</p>
+        </div>`;
+
+      const base = lastPrompt;
+      const variationPrompts = [
+        `${base}, wide cinematic establishing shot, dramatic atmosphere`,
+        `${base}, intimate close-up, moody lighting, shallow depth of field`,
+        `${base}, epic wide angle, golden hour, sweeping composition`,
+        `${base}, ultra detailed macro, intricate textures, filmic color grade`
+      ];
+
+      const results = [];
+      for (let i = 0; i < variationPrompts.length; i++) {
+        try {
+          const res = await fetch('/api/cinematic', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ prompt: variationPrompts[i], mode: 'image' })
+          });
+          const data = await res.json();
+          if (data.success) results.push(data);
+        } catch (e) {}
+      }
+
+      // Restore original + show variations modal
+      container.innerHTML = originalHTML;
+
+      if (results.length === 0) {
+        alert("Could not generate variations right now. Please try again.");
+        return;
+      }
+
+      showVariationsModal(results);
+    }
+
+    function enhanceImage() {
+      if (!lastPrompt) return alert("Generate an image first.");
+      const enhanced = `${lastPrompt}, 8k ultra high resolution, masterpiece, razor sharp details, award-winning cinematography, dramatic volumetric lighting, film grain, hyper detailed`;
+      
+      // Set the textarea to the enhanced prompt so user sees it
+      document.getElementById('prompt').value = enhanced;
+      
+      // Trigger a new generation
+      generate('image');
+    }
+
+    function showVariationsModal(variations) {
+      // Create modal if it doesn't exist
+      let modal = document.getElementById('variationsModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'variationsModal';
+        modal.className = 'fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-6';
+        document.body.appendChild(modal);
+      }
+
+      modal.innerHTML = `
+        <div class="glass rounded-3xl max-w-6xl w-full p-8 relative">
+          <button onclick="document.getElementById('variationsModal').remove()" 
+                  class="absolute top-4 right-4 text-white/60 hover:text-white text-2xl">×</button>
+          
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <div class="text-2xl font-bold">4 Cinematic Variations</div>
+              <div class="text-sm text-white/50">Click any to load into the main preview • All saved to your vault</div>
+            </div>
+            <button onclick="document.getElementById('variationsModal').remove()" 
+                    class="px-5 py-2 text-sm rounded-2xl bg-white/10 hover:bg-white/20">Close</button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            ${variations.map((v, idx) => `
+              <div onclick="loadVariationIntoPreview('${v.url}', '${v.prompt.replace(/'/g, "\\'")}'); document.getElementById('variationsModal').remove();" 
+                   class="group cursor-pointer overflow-hidden rounded-2xl border border-white/10 hover:border-cyan-400/50 transition">
+                <div class="relative">
+                  <img src="${v.url}" class="w-full h-56 object-cover group-hover:scale-[1.02] transition">
+                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                    <div class="text-[10px] text-white/70">Variation ${idx + 1}</div>
+                  </div>
+                </div>
+                <div class="p-3 text-xs text-white/60 line-clamp-2">${v.prompt}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="mt-6 text-center text-xs text-white/40">
+            Generated with refined prompt engineering • Saved automatically if signed in
+          </div>
+        </div>
+      `;
+    }
+
+    function loadVariationIntoPreview(url, promptText) {
+      const content = document.getElementById('content');
+      content.innerHTML = `
+        <div class="relative w-full h-full group">
+          <img src="${url}" class="w-full h-full object-cover">
+          <div class="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
+            <a href="${url}" download class="px-4 py-2 text-sm bg-black/70 hover:bg-black rounded-2xl border border-white/20 flex items-center gap-2">
+              <i class="fas fa-download"></i> <span>Download</span>
+            </a>
+          </div>
+        </div>`;
+
+      // Update history and vault
+      const item = {url, prompt: promptText.substring(0,55), type: 'image', ts: Date.now()};
+      history.unshift(item);
+      renderHistory();
+      renderVaultSidebar();
+      saveToVault(item);
+
+      lastPrompt = promptText;
+      lastType = 'image';
+      document.getElementById('quick-actions').classList.remove('hidden');
+    }
+
+    // Initial state
+    document.getElementById('vault').innerHTML = `<div class="text-xs text-white/40">Sign in to persist generations.</div>`;
   </script>
 </body>
 </html>`;

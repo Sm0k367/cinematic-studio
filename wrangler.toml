@@ -1,11 +1,24 @@
-name = "cinematic-studio"
+name = "epic-tech-ai-cinematic-studio"
 compatibility_date = "2026-05-26"
 compatibility_flags = ["nodejs_compat"]
 
+# This tells Wrangler that the entire project is a static site + Functions (single-file mode)
 pages_build_output_dir = "."
+
+# ====================== REQUIRED SETUP ======================
+# 1. Create a KV namespace in Cloudflare Dashboard → Workers & Pages → KV
+#    Then paste the ID below (replace the placeholder).
+#
+# 2. Create an R2 bucket named "epic-ai-media" (or change bucket_name below)
+#    Then go to the bucket → Settings → "Public Access" and enable it
+#    (or use a custom domain). The app currently uses the public r2.dev URL.
+#
+# 3. AI binding is automatic when you have Workers AI enabled on your account.
+# ===========================================================
 
 [[kv_namespaces]]
 binding = "KV"
+# id = "YOUR_KV_NAMESPACE_ID_HERE"     # <-- UNCOMMENT AND PASTE THE REAL ID
 
 [[r2_buckets]]
 binding = "R2"

@@ -399,6 +399,17 @@ body {
 
 /* Toast container is handled by sonner - we just make sure it looks pro */
 
+/* Premium Neon Cyberpunk Cinematic Theme */
+.glass {
+  background: rgba(17, 17, 19, 0.85);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.neon-purple { color: #c084fc; }
+.neon-pink { color: #f472b6; }
+
+
 /* ============================================
    Improved Cinematic + Neon Cyberpunk Styling
    ============================================ */

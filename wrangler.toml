@@ -1,25 +1,20 @@
-name = "epic-tech-ai-cinematic-studio"
-compatibility_date = "2025-05-27"
+name = "cinematic-studio"
+compatibility_date = "2026-05-26"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "KV"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "epic-ai-media"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "character-memory"
 
 [ai]
 binding = "AI"
 
-[[r2_buckets]]
-binding = "MEDIA"
-bucket_name = "cinematic-ai-media"
-
-# KV and Vectorize bindings are disabled for now (free plan limitation).
-# When you upgrade or create the resources, uncomment and fill in the real IDs.
-
-# [[kv_namespaces]]
-# binding = "KV"
-# id = "YOUR_KV_ID_HERE"
-
-# [[vectorize]]
-# binding = "MEMORY"
-# index_name = "cinematic-memory-vault"
-
-[vars]
-ENVIRONMENT = "production"
+[observability]
+enabled = true

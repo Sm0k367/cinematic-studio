@@ -1,30 +1,36 @@
 name = "epic-tech-ai-cinematic-studio"
-compatibility_date = "2026-05-26"
+compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# This tells Wrangler that the entire project is a static site + Functions (single-file mode)
+# Single-file static site + Pages Functions.
+# All static assets live at the repo root; Functions live under ./functions/.
 pages_build_output_dir = "."
 
-# ====================== CONFIGURED ======================
-# KV namespace: configured with ID c734f05ba19e4797a285e668a2e08b86
-#
-# R2 bucket "cinematic-ai-media" 
-# Public URL: https://pub-4b62b56c14ec4f0a943609f1587fb190.r2.dev
-# Note: This is the rate-limited dev URL. For production, add a custom domain.
-#
-# AI binding is automatic when Workers AI is enabled on your account.
-# ===========================================================
-
+# ====================== BINDINGS ======================
+# KV namespace (auth + memory vault)
+# Create with: wrangler kv:namespace create CINEMATIC_KV
 [[kv_namespaces]]
 binding = "KV"
-id = "c734f05ba19e4797a285e668a2e08b86"
+id = "YOUR_KV_NAMESPACE_ID"
 
+# R2 bucket (generated images + videos)
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "cinematic-ai-media"
 
+# Workers AI
 [ai]
 binding = "AI"
+
+# ====================== VARS ======================
+# Public base URL for the R2 bucket. Override this in production with a custom
+# domain attached to your R2 bucket — the pub-*.r2.dev URL is rate-limited and
+# intended only for development.
+#
+# Find this under: Cloudflare dashboard → R2 → cinematic-ai-media → Settings →
+#   "Public Development URL" (or attach a custom domain for production).
+[vars]
+PUBLIC_R2_BASE = "https://pub-YOUR-PUB-URL-HERE.r2.dev"
 
 [observability]
 enabled = true

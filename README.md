@@ -2,79 +2,143 @@
 
 Premium, minimal, self-contained AI cinematic image & video studio powered by Cloudflare.
 
-**One file. Zero bloat. Ready to deploy.**
+**Static `index.html` + Pages Functions. Zero bundler. One command to deploy.**
+
+---
 
 ## What you get
 
 - Beautiful dark cinematic + neon cyberpunk UI (glassmorphism)
-- Reliable image generation (Flux-1-schnell)
-- Video generation (Pixverse v6)
-- In-studio Chat Assistant (Kimi K2.6)
-- Memory Vault + Generation History
-- Simple email/password accounts (stored in KV)
+- Reliable image generation (`@cf/black-forest-labs/flux-1-schnell`)
+- Video generation (`@cf/pixverse/v6`)
+- In-studio chat assistant (`@cf/moonshotai/kimi-k2.6`)
+- Memory vault + generation history (KV)
+- Email / password accounts with **SHA-256 hashed** passwords at rest
 - Direct download of every generation
-- Fully self-contained in a single `functions/api/cinematic.ts`
+- Binary-safe R2 storage (base64 payloads from Workers AI are decoded before write — no more broken images)
 
-## 5-Minute Setup
+## Architecture (1 minute read)
+
+```
+/
+├── index.html              ← served statically by Pages (fast, free)
+├── _routes.json            ← tells Pages: only /api/* hits Functions
+├── wrangler.toml           ← bindings + PUBLIC_R2_BASE var
+├── deploy.sh               ← guarded deploy script
+└── functions/
+    ├── _lib/shared.ts      ← shared helpers (hash, base64→binary, R2 write)
+    └── api/
+        ├── cinematic.ts    ← POST /api/cinematic  (image | video)
+        ├── chat.ts         ← POST /api/chat
+        ├── auth.ts         ← POST /api/auth       (register | login)
+        └── vault.ts        ← POST /api/vault      (save | load)
+```
+
+Each file under `functions/api/` exports `onRequestPost` — the Cloudflare Pages
+Functions convention. Pages auto-routes URL paths to files; we don't write any
+router code ourselves.
+
+---
+
+## 5-minute setup
 
 ### 1. Cloudflare prerequisites
 
-- Workers AI enabled on your account
-- Create an **R2 bucket** named `cinematic-ai-media`
-  - Enable **Public Development URL** (you'll get a `pub-....r2.dev` link)
-  - For production, connect a custom domain instead (the pub URL is rate-limited)
-- Create a **KV namespace** (any name)
-  - Note the **ID** (you will need it)
+- **Workers AI** enabled on your account
+- **R2 bucket** named `cinematic-ai-media`
+  - Enable **Public Development URL** (you'll get a `https://pub-XXXX.r2.dev`)
+  - For production, attach a **custom domain** instead — pub URLs are rate-limited
+- **KV namespace** (any name) — note the ID
 
-### 2. Configure the project
-
-Edit `wrangler.toml` and uncomment + paste your KV ID:
+### 2. Configure `wrangler.toml`
 
 ```toml
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_REAL_KV_ID_HERE"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "cinematic-ai-media"
+
+[vars]
+PUBLIC_R2_BASE = "https://pub-XXXXXXXX.r2.dev"   # or your custom domain
 ```
 
-(Also update the R2 bucket name if you used something different.)
+The repo ships with the original author's KV id + R2 public URL already filled
+in. Replace them with yours.
 
 ### 3. Deploy
 
 ```bash
-# Make sure you're logged in
+# One-time
 wrangler login
 
-# Deploy (the easy way)
+# Deploy
 bash deploy.sh
-
-# Or manually
-wrangler pages deploy . --project-name=cinematic-studio
+# or
+npm run deploy
+# or directly:
+wrangler pages deploy . --project-name=epic-tech-ai-cinematic-studio --branch=main --commit-dirty=true
 ```
 
-### 4. (Optional) Local development
+`deploy.sh` refuses to push if it spots placeholder values, so you can't ship
+a broken config by accident.
+
+### 4. Local dev
 
 ```bash
+npm install   # optional, only needed for the wrangler devDependency
 wrangler pages dev .
 ```
 
+Workers AI + R2 require real Cloudflare bindings — local dev proxies to your
+real account, so generations still cost real model usage.
+
 ---
 
-## Important Notes
+## API surface
 
-- The first generation may be slow while models warm up.
-- Video generation can be flaky depending on your account's model access.
-- If you see 500 errors on chat or video, it usually means that specific model is not enabled for your account yet — image generation is the most reliable path.
-- All generations are stored in your R2 bucket.
+All routes accept `POST` with `Content-Type: application/json`.
+
+| Route             | Body                                                       | Notes                                  |
+| ----------------- | ---------------------------------------------------------- | -------------------------------------- |
+| `/api/cinematic`  | `{ prompt: string, mode?: "image" \| "video" }`            | Returns `{ success, type, url }`       |
+| `/api/chat`       | `{ message: string }`                                      | Returns `{ success, reply }`           |
+| `/api/auth`       | `{ action: "register" \| "login", email, password }`       | SHA-256 hashed; min 6 chars            |
+| `/api/vault`      | `{ action: "save" \| "load", email, item? }`               | Last 24 items per user                 |
+
+`/api/cinematic` also accepts `GET` for a simple JSON health check.
+
+---
+
+## Notes & gotchas
+
+- **First generation is slow** — models cold-start.
+- **Video / chat may 500 on fresh accounts** — those models aren't enabled
+  by default for every account. Image gen is the reliable path; the UI shows
+  a friendly error when a model isn't available.
+- **R2 must be public.** If you see broken `<img>` previews, your bucket's
+  Public Development URL is off or `PUBLIC_R2_BASE` doesn't match.
+- **Binary safety.** Workers AI returns base64 strings for Flux output. We
+  decode to `Uint8Array` before `R2.put()` — see `functions/_lib/shared.ts`'s
+  `toBinary()`. This is the #1 reason the original "broken JPEG" bug existed.
+- **Passwords are hashed.** Legacy plaintext records (from older versions)
+  are migrated transparently on first successful login.
+- **Auth is trust-on-client.** The vault endpoints accept `email` from the
+  client without a session token — fine for a demo, NOT fine for sensitive
+  data. Add Cloudflare Access or JWT sessions before treating this as a
+  multi-tenant product.
 
 ## Tech
 
 - Cloudflare Pages + Functions (no separate frontend build)
 - Workers AI (Flux + Pixverse + Kimi)
 - R2 for media storage
-- KV for auth + future persistence
+- KV for auth + memory vault
 
 Built to feel expensive. Built to actually work.
 
 ---
 
-**Support the work**: https://buy.stripe.com/7sI3dlgcQ4uL0gMeUW
+**Support the work:** https://buy.stripe.com/7sI3dlgcQ4uL0gMeUW

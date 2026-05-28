@@ -23,8 +23,8 @@ export async function onRequestPost(context: EventContext<Env>) {
       return new Response(JSON.stringify({ error: "Prompt is too short" }), { status: 400 });
     }
 
-    // 1. Writer Agent
-    const writerRes = await env.AI.run("@cf/meta/llama-3.3-70b-instruct", {
+    // 1. Writer Agent (using reliable model)
+    const writerRes = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
       messages: [
         { role: "system", content: "You are an elite Hollywood screenwriter. Write vivid cinematic scene descriptions." },
         { role: "user", content: `Create a rich, detailed cinematic scene based on: "${userPrompt}". Focus on mood, lighting, camera, and atmosphere. Max 70 words.` }
@@ -34,8 +34,8 @@ export async function onRequestPost(context: EventContext<Env>) {
     });
     const writerText = writerRes?.response || "A powerful cinematic scene unfolds with dramatic tension.";
 
-    // 2. Director Agent
-    const directorRes = await env.AI.run("@cf/meta/llama-3.3-70b-instruct", {
+    // 2. Director Agent (using reliable model)
+    const directorRes = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
       messages: [
         { role: "system", content: "You are a master cinematographer. Turn descriptions into perfect FLUX image prompts." },
         { role: "user", content: `Convert this into an optimized, highly detailed prompt for FLUX:\n\n${writerText}\n\nAdd lens, lighting, color grade, and filmic details. Max 65 words.` }

@@ -22,9 +22,18 @@ const CinematicStudio: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [showViewer, setShowViewer] = useState(false);
 
-  // Load Memory Vault from localStorage
+  // Persistent user ID for "accounts" + KV history
   useEffect(() => {
+    let id = localStorage.getItem('cinematic-user-id');
+    if (!id) {
+      id = 'user_' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('cinematic-user-id', id);
+    }
+    setUserId(id);
+
     const saved = localStorage.getItem('cinematic-vault');
     if (saved) setMemoryVault(JSON.parse(saved));
   }, []);
@@ -45,24 +54,29 @@ const CinematicStudio: React.FC = () => {
     "Desert caravan at twilight with warm lantern light",
   ];
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+  const handleGenerate = async (basePrompt?: string, options: { variation?: boolean; upscale?: boolean } = {}) => {
+    const finalPrompt = basePrompt || prompt.trim();
+    if (!finalPrompt) return;
 
     setIsGenerating(true);
     setError(null);
     setStage('writer');
 
     try {
-      await new Promise(r => setTimeout(r, 750));
+      await new Promise(r => setTimeout(r, 650));
       setStage('director');
-
-      await new Promise(r => setTimeout(r, 850));
+      await new Promise(r => setTimeout(r, 750));
       setStage('editor');
 
       const res = await fetch('/api/cinematic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          userId,
+          variation: options.variation,
+          upscale: options.upscale,
+        }),
       });
 
       const data = await res.json();
@@ -81,6 +95,11 @@ const CinematicStudio: React.FC = () => {
 
       setCurrentGeneration(gen);
       setStage('idle');
+
+      // Auto-save to vault
+      const updated = [gen, ...memoryVault.filter(g => g.id !== gen.id)].slice(0, 20);
+      setMemoryVault(updated);
+      localStorage.setItem('cinematic-vault', JSON.stringify(updated));
 
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -118,6 +137,25 @@ const CinematicStudio: React.FC = () => {
     setCurrentGeneration(gen);
     setPrompt(gen.prompt);
     setShowVault(false);
+  };
+
+  // Full-screen cinematic viewer
+  const openViewer = () => {
+    if (currentGeneration) setShowViewer(true);
+  };
+
+  const closeViewer = () => setShowViewer(false);
+
+  const createVariation = () => {
+    if (currentGeneration) {
+      handleGenerate(currentGeneration.prompt, { variation: true });
+    }
+  };
+
+  const upscaleImage = () => {
+    if (currentGeneration) {
+      handleGenerate(currentGeneration.prompt, { upscale: true });
+    }
   };
 
   return (
@@ -175,7 +213,7 @@ const CinematicStudio: React.FC = () => {
             </div>
 
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={!prompt.trim() || isGenerating}
               className="mt-6 w-full h-14 rounded-2xl bg-white text-black font-semibold text-lg flex items-center justify-center gap-3 active:scale-[0.985] disabled:opacity-60"
             >

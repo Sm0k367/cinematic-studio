@@ -5,20 +5,18 @@ compatibility_flags = ["nodejs_compat"]
 # This tells Wrangler that the entire project is a static site + Functions (single-file mode)
 pages_build_output_dir = "."
 
-# ====================== REQUIRED SETUP ======================
-# 1. Create a KV namespace in Cloudflare Dashboard → Workers & Pages → KV
-#    Then paste the ID below (replace the placeholder).
+# ====================== CONFIGURED ======================
+# KV namespace: configured with ID c734f05ba19e4797a285e668a2e08b86
 #
-# 2. Create an R2 bucket named "epic-ai-media" (or change bucket_name below)
-#    Then go to the bucket → Settings → "Public Access" and enable it
-#    (or use a custom domain). The app currently uses the public r2.dev URL.
+# R2 bucket "epic-ai-media" must have Public Access enabled
+#   (or use a custom domain) for media URLs to work reliably.
 #
-# 3. AI binding is automatic when you have Workers AI enabled on your account.
+# AI binding is automatic when Workers AI is enabled on your account.
 # ===========================================================
 
 [[kv_namespaces]]
 binding = "KV"
-# id = "YOUR_KV_NAMESPACE_ID_HERE"     # <-- UNCOMMENT AND PASTE THE REAL ID
+id = "c734f05ba19e4797a285e668a2e08b86"
 
 [[r2_buckets]]
 binding = "R2"

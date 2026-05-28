@@ -1,221 +1,134 @@
 /**
- * Epic Tech AI Cinematic Studio — Universal Media Engine
+ * Epic Tech AI Cinematic Studio
+ * Clean, reliable multi-agent cinematic image generation
  * 
  * POST /api/cinematic
- * Body: { prompt: string, mode?: 'auto'|'image'|'video'|'audio'|'text' }
- * 
- * Smart multi-agent router that supports ANY media type:
- * - Image (Flux + Leonardo-class quality)
- * - Video (partner text-to-video + image-to-video)
- * - Audio / Voice (Inworld + Deepgram TTS)
- * - Text / Script / Storyboard
- * 
- * Always uses the highest quality models available on Cloudflare Workers AI.
+ * Body: { prompt: string }
  */
 
 interface Env {
-  AI: any;                    // Cloudflare AI binding
-  MEDIA?: R2Bucket;           // R2 for permanent public assets (binding name "MEDIA" in wrangler.toml)
-  KV?: KVNamespace;
-  VECTORIZE_INDEX?: VectorizeIndex;   // Optional - not available on free plan
-}
-
-interface CinematicRequest {
-  prompt: string;
-  mode?: 'auto' | 'image' | 'video' | 'audio' | 'text';
-  userId?: string;
+  AI: any;
+  MEDIA?: R2Bucket;
 }
 
 export async function onRequestPost(context: EventContext<Env>) {
   const { request, env } = context;
-  
+
   try {
-    const body: CinematicRequest = await request.json();
-    const { prompt } = body;
+    const body = await request.json();
+    const userPrompt = body.prompt?.trim();
 
-    if (!env.AI) {
-      return new Response(JSON.stringify({ 
-        error: 'AI binding not configured',
-        details: 'The Workers AI binding is missing in this Cloudflare Pages project.'
-      }), { status: 500 });
+    if (!userPrompt || userPrompt.length < 5) {
+      return new Response(JSON.stringify({ error: "Prompt is too short" }), { status: 400 });
     }
 
-    if (!prompt || prompt.trim().length < 8) {
-      return new Response(JSON.stringify({ error: 'Prompt too short' }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const requestedMode = body.mode || 'auto';
-
-    // =====================================================
-    // 0. SMART INTENT CLASSIFIER + MEDIA ROUTER (using best available LLM)
-    // =====================================================
-    const classifierPrompt = `You are the creative director of a world-class AI media studio.
-
-User request: "${prompt}"
-Requested mode: ${requestedMode}
-
-Decide the best output medium and produce an optimized prompt.
-
-Respond ONLY with valid JSON in this exact format (no markdown):
-{
-  "mediaType": "image" | "video" | "audio" | "text",
-  "optimizedPrompt": "highly detailed prompt optimized for the target model",
-  "reason": "short explanation"
-}
-
-Rules:
-- Prefer "image" unless the user clearly asks for motion/video or voice/audio.
-- For video: only choose if they mention "video", "clip", "scene", "timelapse", "animation".
-- For audio: only if they mention voice, narration, sound, music, speak, say.
-- Always make optimizedPrompt very detailed.`;
-
-    // Use the strongest available model for classification
-    const classifierRes = await env.AI.run('@cf/moonshotai/kimi-k2.6', {
+    // ============================================
+    // 1. WRITER AGENT (Llama 3.3 70B)
+    // ============================================
+    const writerResponse = await env.AI.run("@cf/meta/llama-3.3-70b-instruct", {
       messages: [
-        { role: 'system', content: 'You are an expert media generation router. Always return clean JSON only.' },
-        { role: 'user', content: classifierPrompt }
+        {
+          role: "system",
+          content: "You are a world-class Hollywood screenwriter. Write vivid, cinematic scene descriptions.",
+        },
+        {
+          role: "user",
+          content: `Write a rich, detailed cinematic scene description based on this idea: "${userPrompt}". 
+          Focus on lighting, mood, camera angle, and visual atmosphere. Keep it under 80 words.`,
+        },
+      ],
+      max_tokens: 300,
+      temperature: 0.75,
+    });
+
+    const writerText = writerResponse?.response || "A powerful cinematic scene unfolds.";
+
+    // ============================================
+    // 2. DIRECTOR AGENT (same model)
+    // ============================================
+    const directorResponse = await env.AI.run("@cf/meta/llama-3.3-70b-instruct", {
+      messages: [
+        {
+          role: "system",
+          content: "You are an award-winning film director. Turn scene descriptions into optimized prompts for FLUX image generation.",
+        },
+        {
+          role: "user",
+          content: `Transform this scene into a highly detailed, cinematic prompt for an AI image generator:\n\n"${writerText}"\n\nAdd specific lens, lighting, color grade, and filmic details. Maximum 70 words.`,
+        },
       ],
       max_tokens: 250,
-      temperature: 0.2,
+      temperature: 0.65,
     });
 
-    let classification: any = { mediaType: 'image', optimizedPrompt: prompt, reason: 'Default visual' };
-    try {
-      const raw = classifierRes?.response || classifierRes?.result || '{}';
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      classification = JSON.parse(cleaned);
-    } catch (e) {
-      classification = { mediaType: 'image', optimizedPrompt: prompt, reason: 'Visual request' };
-    }
+    const directorText = directorResponse?.response || writerText;
 
-    const mediaType = classification.mediaType;
-    const optimizedPrompt = classification.optimizedPrompt;
+    const finalImagePrompt = `${directorText}, cinematic masterpiece, film still, highly detailed, professional photography, dramatic lighting`;
 
-    // =====================================================
-    // 1. MULTI-AGENT CREATIVE DIRECTION (always run for quality)
-    // =====================================================
-    const directorSystem = 'You are an award-winning director who prepares perfect prompts for any media type.';
-
-    const directionRes = await env.AI.run('@cf/moonshotai/kimi-k2.6', {
-      messages: [
-        { role: 'system', content: directorSystem },
-        { role: 'user', content: `Take this request and create the ultimate prompt for a ${mediaType} generation model:\n\n${optimizedPrompt}\n\nMake it extremely detailed and optimized for the best possible output.` }
-      ],
-      max_tokens: 350,
-      temperature: 0.7,
+    // ============================================
+    // 3. EDITOR - Generate with FLUX.1-schnell (reliable & fast)
+    // ============================================
+    const imageResponse = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
+      prompt: finalImagePrompt,
     });
 
-    const finalPromptForModel = directionRes?.response || directionRes?.result || optimizedPrompt;
+    const imageBase64 = imageResponse?.image || imageResponse?.result?.image;
 
-    // =====================================================
-    // 2. ROUTE TO THE CORRECT HIGH-QUALITY MODEL (Mastered stable versions)
-    // =====================================================
-    let result: any = {};
-    let mediaUrl = '';
-    let mediaBase64 = '';
-    let extraMeta: any = {};
-
-    // =====================================================
-    // SAFE ROUTING - Prioritize never crashing
-    // =====================================================
-    const mediaTypeFinal = classification.mediaType || 'image';
-
-    try {
-      if (mediaTypeFinal === 'image' || mediaTypeFinal === 'video') {
-        // Use the most reliable image model available
-        const imgRes = await env.AI.run('@cf/blackforestlabs/flux-1-schnell', {
-          prompt: finalPromptForModel + (mediaTypeFinal === 'video' ? ' cinematic still frame' : ''),
-        });
-        mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
-        mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
-        extraMeta.modelUsed = 'flux-1-schnell';
-
-      } else if (mediaTypeFinal === 'audio') {
-        try {
-          const ttsRes = await env.AI.run('@cf/deepgram/aura-2-en', {
-            text: finalPromptForModel.substring(0, 600),
-          });
-          mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
-          mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
-        } catch (audioErr) {
-          result.textOutput = finalPromptForModel;
-          extraMeta.note = 'Audio model unavailable — returned as text';
-        }
-
-      } else {
-        result.textOutput = finalPromptForModel;
-      }
-    } catch (modelErr: any) {
-      console.error('Model call failed:', modelErr);
-      // Never let a model failure kill the whole request
-      result.textOutput = finalPromptForModel;
-      extraMeta.note = 'Model call failed, returned prompt as text';
-      extraMeta.errorDetails = modelErr.message;
+    if (!imageBase64) {
+      throw new Error("FLUX did not return an image");
     }
 
-    // Store in R2 when possible (for images/video)
-    const finalAssetId = `${mediaType}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    if (mediaBase64 && env.MEDIA) {
+    // ============================================
+    // 4. Store in R2 (optional)
+    // ============================================
+    let imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+
+    if (env.MEDIA) {
       try {
-        const buffer = Uint8Array.from(atob(mediaBase64), c => c.charCodeAt(0));
-        const contentType = mediaType === 'audio' ? 'audio/wav' : 'image/jpeg';
-        await env.MEDIA.put(finalAssetId, buffer, {
-          httpMetadata: { contentType },
+        const buffer = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
+        const id = `cinematic/${Date.now()}.jpg`;
+        await env.MEDIA.put(id, buffer, {
+          httpMetadata: { contentType: "image/jpeg" },
         });
-      } catch (e) { /* graceful */ }
+        // You can replace this with your actual R2 public domain later
+        imageUrl = `https://cinematic-ai-media.r2.dev/${id}`;
+      } catch (r2Err) {
+        console.warn("R2 upload failed, using inline base64 instead");
+      }
     }
 
-    // =====================================================
-    // FINAL RESPONSE — Unified for any media type
-    // =====================================================
-    const assetId = finalAssetId || `gen-${Date.now()}`;
-    const finalMediaUrl = mediaUrl || (mediaBase64 ? `data:${mediaType === 'audio' ? 'audio/wav' : 'image/jpeg'};base64,${mediaBase64}` : '');
-
-    return new Response(JSON.stringify({
-      success: true,
-      generation: {
-        id: assetId,
-        prompt,
-        mediaType,
-        mediaUrl: finalMediaUrl,
-        mediaBase64,
-        optimizedPrompt: finalPromptForModel,
-        classification,
-        agents: {
-          director: finalPromptForModel.substring(0, 280) + '...',
+    // ============================================
+    // Return clean result
+    // ============================================
+    return new Response(
+      JSON.stringify({
+        success: true,
+        generation: {
+          id: Date.now().toString(),
+          prompt: userPrompt,
+          enhancedPrompt: directorText,
+          imageUrl: imageUrl,
+          agents: {
+            writer: writerText,
+            director: directorText,
+          },
+          model: "FLUX.1-schnell + Llama-3.3-70B",
         },
-        metadata: {
-          model: mediaType === 'video' ? 'Partner Video Models (Vidu/HappyHorse)' : 
-                 mediaType === 'audio' ? 'Inworld TTS-2' : 
-                 'Flux + Kimi K2.6',
-          style: 'Cinematic',
-          ...extraMeta
-        }
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
       }
-    }), {
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store'
-      }
-    });
-
+    );
   } catch (error: any) {
-    console.error('Cinematic pipeline error (FULL):', error);
-
-    return new Response(JSON.stringify({ 
-      error: 'Generation pipeline failed',
-      details: error?.message || String(error),
-      // Send as much info as possible so user can debug
-      modelAttempted: 'various',
-      timestamp: new Date().toISOString()
-    }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error("Cinematic pipeline error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Generation pipeline failed",
+        details: error.message || "Unknown error",
+      }),
+      { status: 500 }
+    );
   }
 }
 
-export const onRequest = onRequestPost; // Pages Functions convention
+export const onRequest = onRequestPost;

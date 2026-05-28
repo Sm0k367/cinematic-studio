@@ -18,6 +18,9 @@
   --text-muted: #a1a1aa;
   --text-dim: #71717a;
   --accent-gold: #c5a46e;
+  --accent-purple: #c084fc;
+  --accent-pink: #f472b6;
+  --accent-orange: #fb923c;
   --accent-teal: #67e8f9;
   --accent-gold-dark: #a07d4e;
   --success: #22c55e;
@@ -395,3 +398,25 @@ body {
 }
 
 /* Toast container is handled by sonner - we just make sure it looks pro */
+
+/* ============================================
+   Improved Cinematic + Neon Cyberpunk Styling
+   ============================================ */
+
+.text-neon {
+  background: linear-gradient(90deg, #c084fc, #f472b6, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass {
+  background: rgba(17, 17, 19, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.preview-frame {
+  box-shadow: 0 25px 60px -15px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+

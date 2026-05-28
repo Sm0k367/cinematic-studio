@@ -1,538 +1,248 @@
-import React, { useState, useEffect } from 'react';
-import { Download, RefreshCw, Copy, Image as ImageIcon, Film } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from 'sonner';
+import { Loader2, Image as ImageIcon, Download, RefreshCw } from 'lucide-react';
 
-// Types
 interface Generation {
   id: string;
   prompt: string;
   imageUrl: string;
-  imageBase64?: string;
-  mediaType?: 'image' | 'video' | 'audio' | 'text';
-  mediaUrl?: string;
-  timestamp: string;
+  enhancedPrompt?: string;
   agents?: {
-    writer?: string;
-    director?: string;
+    writer: string;
+    director: string;
   };
-}
-
-interface AgentStage {
-  key: 'writer' | 'director' | 'editor';
-  label: string;
-  status: 'idle' | 'active' | 'complete';
 }
 
 const CinematicStudio: React.FC = () => {
   const [prompt, setPrompt] = useState('');
-  const [mode, setMode] = useState<'auto' | 'image' | 'video' | 'audio' | 'text'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
-  const [gallery, setGallery] = useState<Generation[]>([]);
-  const [stages, setStages] = useState<AgentStage[]>([
-    { key: 'writer', label: 'Writer', status: 'idle' },
-    { key: 'director', label: 'Director', status: 'idle' },
-    { key: 'editor', label: 'Editor', status: 'idle' },
-  ]);
-  const [showInsights, setShowInsights] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<'idle' | 'writer' | 'director' | 'editor'>('idle');
 
-  // Load persisted gallery from localStorage (dynamic & reliable)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cinematic-gallery');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setGallery(parsed.slice(0, 12));
-      }
-    } catch (e) {
-      // ignore corrupted storage
-    }
-  }, []);
-
-  // Persist gallery
-  const persistGallery = (updated: Generation[]) => {
-    try {
-      localStorage.setItem('cinematic-gallery', JSON.stringify(updated.slice(0, 12)));
-    } catch (e) {
-      // storage full or private mode — graceful
-    }
-    setGallery(updated);
-  };
-
-  // Beautiful cinematic prompt suggestions (dynamic & useful)
   const suggestions = [
-    "Serene sunrise over misty mountain peaks, golden hour light, anamorphic lens, film grain",
-    "Lone samurai standing in pouring rain at dusk, dramatic side lighting, teal & orange grade",
-    "Futuristic neon Tokyo street at night, reflections on wet pavement, cyberpunk noir",
-    "Epic wide shot of ancient temple ruins at golden hour, volumetric god rays, 70mm IMAX",
-    "Intimate close-up of a grieving astronaut, stars reflected in visor, melancholic mood",
-    "Vast desert caravan at twilight, warm lantern light, sweeping crane movement implied",
-    "Dark sci-fi corridor, single red emergency light, tension, Blade Runner 2049 influence",
-    "Elegant ballerina mid-leap on empty stage, dramatic spotlight, black & gold palette"
+    "Serene sunrise over misty mountain peaks, golden hour, anamorphic lens",
+    "Lone samurai standing in pouring rain at dusk, dramatic side lighting",
+    "Futuristic neon Tokyo street at night, reflections on wet pavement",
+    "Epic wide shot of ancient temple ruins at golden hour, volumetric god rays",
+    "Intimate close-up of a grieving astronaut, stars reflected in visor",
+    "Vast desert caravan at twilight, warm lantern light, sweeping crane movement",
   ];
 
-  const applySuggestion = (text: string) => {
-    setPrompt(text);
-    toast.success('Prompt loaded', { description: 'Ready to generate' });
-  };
-
-  // Real multi-agent pipeline call
-  const handleGenerate = async (regeneratePrompt?: string) => {
-    const finalPrompt = (regeneratePrompt || prompt).trim();
-
-    if (!finalPrompt) {
-      toast.error('Please describe your cinematic vision');
-      return;
-    }
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
 
     setIsGenerating(true);
-    setShowInsights(false);
-    setCurrentGeneration(null);
-
-    // Reset beautiful stage progress
-    setStages([
-      { key: 'writer', label: 'Writer', status: 'active' },
-      { key: 'director', label: 'Director', status: 'idle' },
-      { key: 'editor', label: 'Editor', status: 'idle' },
-    ]);
+    setError(null);
+    setStage('writer');
 
     try {
-      // Simulate the professional pipeline timing (makes it feel alive and dynamic)
-      await new Promise(r => setTimeout(r, 620));
+      // Simulate agent pipeline for UX
+      await new Promise(r => setTimeout(r, 800));
+      setStage('director');
 
-      setStages(prev => prev.map(s => 
-        s.key === 'writer' ? { ...s, status: 'complete' } : 
-        s.key === 'director' ? { ...s, status: 'active' } : s
-      ));
+      await new Promise(r => setTimeout(r, 900));
+      setStage('editor');
 
-      await new Promise(r => setTimeout(r, 780));
-
-      setStages(prev => prev.map(s => 
-        s.key === 'director' ? { ...s, status: 'complete' } : 
-        s.key === 'editor' ? { ...s, status: 'active' } : s
-      ));
-
-      // === REAL API CALL ===
       const res = await fetch('/api/cinematic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: finalPrompt, mode })
+        body: JSON.stringify({ prompt: prompt.trim() }),
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Generation failed. The studio may be warming up.');
-      }
 
       const data = await res.json();
 
-      if (!data.success || !data.generation) {
-        throw new Error('Unexpected response from the pipeline.');
+      if (!res.ok || !data.success) {
+        throw new Error(data.details || data.error || 'Generation failed');
       }
 
-      const gen = data.generation;
-
-      // Prefer inline base64 for guaranteed display (fixes the "scavenger bird" / placeholder problem)
-      let displayUrl = gen.mediaUrl || gen.imageUrl;
-      if (gen.mediaBase64 || gen.imageBase64) {
-        const b64 = gen.mediaBase64 || gen.imageBase64;
-        const mime = gen.mediaType === 'audio' ? 'audio/wav' : 'image/jpeg';
-        displayUrl = `data:${mime};base64,${b64}`;
-      }
-
-      const newGen: Generation = {
-        id: gen.id || `gen-${Date.now()}`,
-        prompt: gen.prompt || finalPrompt,
-        imageUrl: displayUrl,
-        imageBase64: gen.imageBase64,
-        timestamp: new Date().toISOString(),
-        agents: gen.agents,
+      const gen: Generation = {
+        id: data.generation.id,
+        prompt: data.generation.prompt,
+        imageUrl: data.generation.imageUrl,
+        enhancedPrompt: data.generation.enhancedPrompt,
+        agents: data.generation.agents,
       };
 
-      // Complete the last stage
-      setStages(prev => prev.map(s => ({ ...s, status: 'complete' })));
-
-      // Small cinematic pause before revealing the frame
-      await new Promise(r => setTimeout(r, 380));
-
-      setCurrentGeneration(newGen);
-
-      // Add to dynamic gallery (most recent first)
-      const updatedGallery = [newGen, ...gallery.filter(g => g.id !== newGen.id)].slice(0, 12);
-      persistGallery(updatedGallery);
-
-      setShowInsights(true);
-
-      const mediaLabel = mode === 'video' ? 'Video sequence' : mode === 'audio' ? 'Audio' : mode === 'text' ? 'Script' : 'Cinematic frame';
-      toast.success(`${mediaLabel} generated`, {
-        description: 'Multi-agent pipeline complete',
-      });
-
-    } catch (error: any) {
-      console.error('Generation error:', error);
-
-      // Try to extract real backend error if available
-      let realError = error.message || 'Unknown error';
-      if (error.details) realError = error.details;
-
-      toast.error('Generation failed', {
-        description: realError,
-        duration: 8000,
-      });
-
-      // Only use fallback image if we have no better info
-      // This prevents the "same image every time" problem the user reported
-      setIsGenerating(false);
-      return;
+      setCurrentGeneration(gen);
+      setStage('idle');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Something went wrong. Please try again.');
+      setStage('idle');
     } finally {
       setIsGenerating(false);
-      // Reset stages after a beat
-      setTimeout(() => {
-        setStages([
-          { key: 'writer', label: 'Writer', status: 'idle' },
-          { key: 'director', label: 'Director', status: 'idle' },
-          { key: 'editor', label: 'Editor', status: 'idle' },
-        ]);
-      }, 1400);
     }
   };
 
-  const loadFromGallery = (gen: Generation) => {
-    setCurrentGeneration(gen);
-    setPrompt(gen.prompt);
-    setShowInsights(!!gen.agents);
-    window.scrollTo({ top: 180, behavior: 'smooth' });
-  };
-
-  const handleRegenerate = () => {
-    if (currentGeneration) {
-      handleGenerate(currentGeneration.prompt);
-    }
-  };
-
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!currentGeneration) return;
-
-    try {
-      const link = document.createElement('a');
-      link.download = `cinematic-${currentGeneration.id}.jpg`;
-
-      if (currentGeneration.imageUrl.startsWith('data:')) {
-        link.href = currentGeneration.imageUrl;
-      } else {
-        // Fetch remote image and convert to blob for reliable download
-        const response = await fetch(currentGeneration.imageUrl);
-        const blob = await response.blob();
-        link.href = URL.createObjectURL(blob);
-      }
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success('Downloaded', { description: 'High-resolution frame saved' });
-    } catch (e) {
-      toast.error('Download failed', { description: 'Right-click the image and save instead.' });
-    }
+    const link = document.createElement('a');
+    link.href = currentGeneration.imageUrl;
+    link.download = `cinematic-${currentGeneration.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
-
-  const handleCopyPrompt = () => {
-    if (!currentGeneration) return;
-    navigator.clipboard.writeText(currentGeneration.prompt);
-    toast.success('Prompt copied', { description: 'Ready to paste anywhere' });
-  };
-
-  const clearGallery = () => {
-    persistGallery([]);
-    toast.info('Gallery cleared');
-  };
-
-  const currentImageSrc = currentGeneration?.imageUrl || '';
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#f4f4f5] pb-16">
-      {/* Clean Professional Navigation */}
-      <nav className="border-b border-white/10 sticky top-0 z-50 bg-[#050505]/95 backdrop-blur-xl">
-        <div className="studio-container flex items-center justify-between py-5">
-          <div className="logo">
-            <div className="logo-mark"><Film className="w-4 h-4" /></div>
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* Top Nav */}
+      <div className="border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-[#c084fc] via-[#f472b6] to-[#fb923c] rounded-lg flex items-center justify-center">
+              <span className="font-bold text-black text-xl">E</span>
+            </div>
             <div>
-              <div className="logo-text tracking-[-0.6px]">Cinematic Studio</div>
-              <div className="logo-sub">Epic Tech AI</div>
+              <div className="font-semibold tracking-tight">Epic Tech AI</div>
+              <div className="text-[10px] text-white/50 -mt-1">CINEMATIC STUDIO</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
-            <div className="hidden md:flex items-center gap-6 text-[#a1a1aa]">
-              <span className="hover:text-white cursor-pointer transition-colors">Create</span>
-              <span className="hover:text-white cursor-pointer transition-colors">Gallery</span>
-              <span className="hover:text-white cursor-pointer transition-colors">Agents</span>
-            </div>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="pro-button secondary px-5 py-2 text-xs"
-            >
-              Reset Studio
-            </button>
-          </div>
+          <div className="text-sm text-white/60">Powered by Cloudflare AI</div>
         </div>
-      </nav>
+      </div>
 
-      <div className="studio-container pt-10">
-        {/* Hero Header - Professional & Focused */}
-        <div className="text-center mb-9">
-          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-white/5 text-xs tracking-[2px] mb-4 border border-white/10">
-            POWERED BY CLOUDFLARE AI • FLUX.1-DEV
+      <div className="max-w-5xl mx-auto px-6 pt-10 pb-20">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-block px-4 py-1 rounded-full bg-white/5 text-xs tracking-[3px] mb-4 border border-white/10">
+            HOLLYWOOD MEETS EDGE AI
           </div>
-          <h1 className="text-6xl md:text-7xl font-semibold tracking-[-2.8px] mb-3">
-            Create studio-quality<br />cinematic frames.
+          <h1 className="text-6xl font-semibold tracking-tighter mb-3">
+            Create cinematic frames.<br />Powered by agents.
           </h1>
-          <p className="text-xl text-[#a1a1aa] max-w-md mx-auto">
-            Writer. Director. Editor. Real multi-agent pipeline. No noise.
+          <p className="text-xl text-white/70 max-w-md mx-auto">
+            Writer. Director. FLUX. One click to studio-quality results.
           </p>
         </div>
 
-        {/* Main Prompt Area */}
-        <div className="max-w-3xl mx-auto mb-10">
-          <div className="prompt-card">
-            <label className="prompt-label">DESCRIBE YOUR CINEMATIC VISION</label>
+        {/* Prompt Area */}
+        <div className="max-w-3xl mx-auto mb-8">
+          <div className="bg-[#111113] border border-white/10 rounded-3xl p-6">
+            <div className="text-xs uppercase tracking-[2px] text-[#c084fc] mb-3 font-medium">YOUR VISION</div>
 
-            {/* Media Mode Selector — now supports any kind of generation */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {[
-                { key: 'auto', label: 'Auto (Smart)' },
-                { key: 'image', label: 'Image' },
-                { key: 'video', label: 'Video' },
-                { key: 'audio', label: 'Voice / Audio' },
-                { key: 'text', label: 'Script / Story' },
-              ].map(m => (
-                <button
-                  key={m.key}
-                  onClick={() => setMode(m.key as any)}
-                  disabled={isGenerating}
-                  className={`px-4 py-1.5 text-xs rounded-full border transition-all ${
-                    mode === m.key 
-                      ? 'bg-[#c5a46e] text-black border-[#c5a46e]' 
-                      : 'border-white/10 hover:border-[#c5a46e]/50 text-[#a1a1aa]'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !isGenerating) {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleGenerate();
                 }
               }}
-              placeholder="A lone figure walking through an endless field of wheat at golden hour, warm wind, anamorphic lens flares, 35mm film, deeply emotional..."
-              className="prompt-textarea"
+              placeholder="A lone figure walking through an endless wheat field at golden hour, warm wind, anamorphic lens flares, 35mm film..."
+              className="w-full bg-black/50 border border-white/10 rounded-2xl p-5 text-lg placeholder:text-white/40 focus:outline-none focus:border-[#c084fc]/50 resize-none min-h-[110px]"
               disabled={isGenerating}
             />
 
-            {/* Dynamic, high-quality suggestions */}
-            <div className="suggestions">
-              {suggestions.map((s, idx) => (
+            {/* Suggestions */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {suggestions.map((s, i) => (
                 <button
-                  key={idx}
-                  onClick={() => applySuggestion(s)}
-                  className="suggestion-chip"
+                  key={i}
+                  onClick={() => setPrompt(s)}
                   disabled={isGenerating}
+                  className="text-xs px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
                 >
-                  {s.length > 72 ? s.substring(0, 69) + '…' : s}
+                  {s.length > 55 ? s.substring(0, 52) + '...' : s}
                 </button>
               ))}
             </div>
 
-            {/* Generate Button + Progress */}
-            <div className="mt-6 flex flex-col items-center">
-              <button
-                onClick={() => handleGenerate()}
-                disabled={isGenerating || !prompt.trim()}
-                className="pro-button w-full max-w-[340px] py-4 text-base disabled:opacity-60"
-              >
-                {isGenerating ? 'RENDERING IN THE VAULT...' : 'GENERATE CINEMATIC FRAME'}
-              </button>
-
-              {/* Beautiful dynamic agent stage progress */}
-              <AnimatePresence>
-                {isGenerating && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} 
-                    animate={{ opacity: 1, y: 0 }}
-                    className="stage-progress w-full max-w-[520px]"
-                  >
-                    {stages.map((stage, index) => (
-                      <div 
-                        key={index} 
-                        className={`stage ${stage.status === 'active' ? 'active' : ''} ${stage.status === 'complete' ? 'complete' : ''}`}
-                      >
-                        <div className="stage-dot" />
-                        <span>{stage.label}</span>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || !prompt.trim()}
+              className="mt-6 w-full h-14 rounded-2xl bg-white text-black font-semibold text-lg flex items-center justify-center gap-3 hover:bg-white/90 disabled:opacity-50 transition-all active:scale-[0.985]"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {stage === 'writer' && 'Writer is crafting the scene...'}
+                  {stage === 'director' && 'Director is framing the shot...'}
+                  {stage === 'editor' && 'FLUX is rendering the frame...'}
+                </>
+              ) : (
+                'GENERATE CINEMATIC FRAME'
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Large, Beautiful Preview Area */}
-        <div className="max-w-[1100px] mx-auto">
-          <div className="preview-frame bg-black">
+        {/* Error */}
+        <AnimatePresence>
+          {error && (
+            <div className="max-w-3xl mx-auto mb-6 p-4 bg-red-950/50 border border-red-900/50 text-red-400 rounded-2xl text-sm">
+              {error}
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Preview Area */}
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-[#111113] border border-white/10 rounded-3xl overflow-hidden aspect-[16/9] relative flex items-center justify-center">
             <AnimatePresence mode="wait">
               {currentGeneration ? (
-                currentGeneration.mediaType === 'video' ? (
-                  <video 
-                    key={currentGeneration.id}
-                    src={currentImageSrc} 
-                    controls 
-                    autoPlay 
-                    loop 
-                    className="w-full h-full object-cover"
-                  />
-                ) : currentGeneration.mediaType === 'audio' ? (
-                  <div className="flex flex-col items-center justify-center w-full h-full bg-black/60 p-12">
-                    <audio key={currentGeneration.id} src={currentImageSrc} controls className="w-full max-w-md" />
-                    <div className="text-xs text-[#a1a1aa] mt-4 tracking-widest">CINEMATIC VOICE / AUDIO</div>
-                  </div>
-                ) : (
-                  <motion.img 
-                    key={currentGeneration.id}
-                    src={currentImageSrc}
-                    alt={currentGeneration.prompt}
-                    initial={{ opacity: 0.6, scale: 0.985 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-                    className="w-full h-full object-cover"
-                  />
-                )
+                <motion.img
+                  key={currentGeneration.id}
+                  src={currentGeneration.imageUrl}
+                  alt={currentGeneration.prompt}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <div className="preview-empty">
-                  <ImageIcon className="icon mx-auto" />
-                  <div className="text-lg font-medium tracking-tight mb-1">Your frame will appear here</div>
-                  <div className="text-sm text-[#71717a]">Enter a vision above and press generate</div>
+                <div className="text-center text-white/40">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-40" />
+                  <div>Your cinematic frame will appear here</div>
                 </div>
               )}
             </AnimatePresence>
 
             {currentGeneration && (
-              <div className="preview-overlay mono">FLUX.1-DEV • CINEMATIC</div>
+              <div className="absolute top-4 right-4 px-3 py-1 text-[10px] tracking-widest bg-black/70 rounded-full border border-white/20">
+                FLUX.1-SCHNELL • CINEMATIC
+              </div>
             )}
           </div>
 
-          {/* Action Bar - clean and powerful */}
-          <AnimatePresence>
-            {currentGeneration && (
-              <motion.div 
-                initial={{ opacity: 0, y: 8 }} 
-                animate={{ opacity: 1, y: 0 }}
-                className="action-bar"
+          {/* Actions */}
+          {currentGeneration && (
+            <div className="flex gap-3 mt-4 justify-center">
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-sm"
               >
-                <button onClick={handleDownload} className="pro-button secondary flex-1 sm:flex-none">
-                  <Download className="w-4 h-4" /> Download Frame
-                </button>
-                <button onClick={handleRegenerate} className="pro-button secondary flex-1 sm:flex-none">
-                  <RefreshCw className="w-4 h-4" /> Regenerate
-                </button>
-                <button onClick={handleCopyPrompt} className="pro-button secondary flex-1 sm:flex-none">
-                  <Copy className="w-4 h-4" /> Copy Prompt
-                </button>
-                <button 
-                  onClick={() => { setCurrentGeneration(null); setShowInsights(false); setPrompt(''); }}
-                  className="pro-button secondary flex-1 sm:flex-none text-[#a1a1aa]"
-                >
-                  New Vision
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Agent Insights — the thing that makes it feel premium and transparent */}
-          <AnimatePresence>
-            {showInsights && currentGeneration?.agents && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }} 
-                animate={{ opacity: 1, height: 'auto' }}
-                className="insights-panel mt-8"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <div className="text-xs tracking-[2px] text-[#c5a46e] font-semibold">THE CREATIVE PROCESS</div>
-                    <div className="text-lg tracking-[-0.3px] font-semibold">Agent Insights</div>
-                  </div>
-                  <button onClick={() => setShowInsights(false)} className="text-xs text-[#a1a1aa] hover:text-white">Hide</button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4 mt-4">
-                  <div className="insight">
-                    <div className="insight-label">Writer — Scene &amp; Emotion</div>
-                    <div className="insight-text">{currentGeneration.agents.writer}</div>
-                  </div>
-                  <div className="insight">
-                    <div className="insight-label">Director — Cinematic Direction</div>
-                    <div className="insight-text">{currentGeneration.agents.director}</div>
-                  </div>
-                </div>
-                <div className="text-[10px] text-[#71717a] mt-4 tracking-wide">This is what the pipeline actually produced before FLUX rendered the frame.</div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Dynamic Gallery */}
-        <div className="gallery-section max-w-[1100px] mx-auto">
-          <div className="flex items-center justify-between mb-4 px-1">
-            <div>
-              <div className="text-xs tracking-[2.5px] text-[#c5a46e] font-semibold">YOUR STUDIO</div>
-              <div className="text-2xl tracking-[-0.6px] font-semibold">Recent Frames</div>
-            </div>
-            {gallery.length > 0 && (
-              <button 
-                onClick={clearGallery} 
-                className="text-xs text-[#71717a] hover:text-white transition-colors"
-              >
-                Clear history
+                <Download className="w-4 h-4" /> Download
               </button>
-            )}
-          </div>
-
-          {gallery.length > 0 ? (
-            <div className="gallery-grid">
-              {gallery.map((gen) => (
-                <div 
-                  key={gen.id} 
-                  onClick={() => loadFromGallery(gen)}
-                  className="gallery-item group"
-                >
-                  <img 
-                    src={gen.imageUrl} 
-                    alt={gen.prompt} 
-                    loading="lazy"
-                  />
-                  <div className="meta">
-                    {gen.prompt.length > 85 ? gen.prompt.substring(0, 82) + '…' : gen.prompt}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="gallery-empty">
-              Your generated frames will live here. They persist across refreshes.
+              <button
+                onClick={() => {
+                  setCurrentGeneration(null);
+                  setPrompt('');
+                  setError(null);
+                }}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-sm"
+              >
+                <RefreshCw className="w-4 h-4" /> New Vision
+              </button>
             </div>
           )}
-        </div>
 
-        {/* Subtle professional footer */}
-        <div className="text-center text-[10px] text-[#71717a] tracking-widest mt-16">
-          EPIC TECH AI — POWERED BY CLOUDFLARE
+          {/* Agent Breakdown */}
+          {currentGeneration?.agents && (
+            <div className="mt-8 grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
+              <div className="bg-[#111113] border border-white/10 rounded-2xl p-5">
+                <div className="text-[#c084fc] text-xs tracking-widest mb-2">WRITER AGENT</div>
+                <p className="text-sm text-white/90 leading-relaxed">{currentGeneration.agents.writer}</p>
+              </div>
+              <div className="bg-[#111113] border border-white/10 rounded-2xl p-5">
+                <div className="text-[#f472b6] text-xs tracking-widest mb-2">DIRECTOR AGENT</div>
+                <p className="text-sm text-white/90 leading-relaxed">{currentGeneration.agents.director}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

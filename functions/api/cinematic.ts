@@ -59,35 +59,35 @@ Requested mode: ${requestedMode}
 
 Decide the best output medium and produce an optimized prompt.
 
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON in this exact format (no markdown):
 {
   "mediaType": "image" | "video" | "audio" | "text",
-  "optimizedPrompt": "the best prompt for the chosen model",
-  "reason": "one sentence why this medium"
+  "optimizedPrompt": "highly detailed prompt optimized for the target model",
+  "reason": "short explanation"
 }
 
 Rules:
-- If the user wants motion, camera movement, or "video", choose "video".
-- If they want voice, narration, song, or sound, choose "audio".
-- If they want a script, story, or text only, choose "text".
-- Default to stunning "image" for most visual requests.
-- Always make the optimizedPrompt extremely detailed and model-specific.`;
+- Prefer "image" unless the user clearly asks for motion/video or voice/audio.
+- For video: only choose if they mention "video", "clip", "scene", "timelapse", "animation".
+- For audio: only if they mention voice, narration, sound, music, speak, say.
+- Always make optimizedPrompt very detailed.`;
 
+    // Use the strongest available model for classification
     const classifierRes = await env.AI.run('@cf/moonshotai/kimi-k2.6', {
       messages: [
-        { role: 'system', content: 'You are an expert media generation router. Output only clean JSON.' },
+        { role: 'system', content: 'You are an expert media generation router. Always return clean JSON only.' },
         { role: 'user', content: classifierPrompt }
       ],
-      max_tokens: 300,
-      temperature: 0.3,
+      max_tokens: 250,
+      temperature: 0.2,
     });
 
     let classification: any = { mediaType: 'image', optimizedPrompt: prompt, reason: 'Default visual' };
     try {
       const raw = classifierRes?.response || classifierRes?.result || '{}';
-      classification = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      classification = JSON.parse(cleaned);
     } catch (e) {
-      // fallback
       classification = { mediaType: 'image', optimizedPrompt: prompt, reason: 'Visual request' };
     }
 
@@ -111,61 +111,54 @@ Rules:
     const finalPromptForModel = directionRes?.response || directionRes?.result || optimizedPrompt;
 
     // =====================================================
-    // 2. ROUTE TO THE CORRECT HIGH-QUALITY MODEL
+    // 2. ROUTE TO THE CORRECT HIGH-QUALITY MODEL (Mastered stable versions)
     // =====================================================
     let result: any = {};
     let mediaUrl = '';
     let mediaBase64 = '';
     let extraMeta: any = {};
 
-    if (mediaType === 'image') {
+    const mediaTypeFinal = classification.mediaType || 'image';
+
+    if (mediaTypeFinal === 'image') {
       try {
-        // Highest quality image — Flux (latest stable on CF)
-        const imgRes = await env.AI.run('@cf/black-forest-labs/flux-1-dev', {
-          prompt: finalPromptForModel + ', cinematic masterpiece, 8k, film still, professional photography',
-          num_steps: 28,
+        // Best current image model (Flux 2 series recommended)
+        const imgRes = await env.AI.run('@cf/blackforestlabs/flux-2-dev', {
+          prompt: finalPromptForModel + ', cinematic, highly detailed, film still',
+          num_steps: 25,
           guidance: 3.5,
         });
         mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
         mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
-      } catch (imgErr) {
-        console.error('Image generation failed:', imgErr);
-        throw new Error('Image model failed: ' + (imgErr.message || 'unknown error'));
-      }
-
-    } else if (mediaType === 'video') {
-      // Video via best available partner model on Workers AI (proxied high-quality)
-      try {
-        const videoRes = await env.AI.run('@cf/alibaba/happyhorse-1.0-text2video', {
+      } catch (e) {
+        // Fallback to Schnell (faster, very reliable)
+        const imgRes = await env.AI.run('@cf/blackforestlabs/flux-1-schnell', {
           prompt: finalPromptForModel,
         });
-        mediaUrl = videoRes?.video || videoRes?.result?.video || '';
-        extraMeta.videoPrompt = finalPromptForModel;
-      } catch (videoErr) {
-        // Graceful fallback
-        mediaUrl = '';
-        extraMeta.videoPrompt = finalPromptForModel;
-        extraMeta.note = 'Video generation is currently in preview. Using enhanced prompt instead.';
-        extraMeta.error = 'Video model call failed (may not be enabled in this account yet)';
+        mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
+        mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
       }
 
-    } else if (mediaType === 'audio') {
+    } else if (mediaTypeFinal === 'audio') {
       try {
-        // Voice / Audio — Inworld TTS
-        const ttsRes = await env.AI.run('@cf/inworld/tts-2', {
-          text: finalPromptForModel.substring(0, 500), // safety limit
+        // Best current TTS - Deepgram Aura (very reliable partner model)
+        const ttsRes = await env.AI.run('@cf/deepgram/aura-2-en', {
+          text: finalPromptForModel.substring(0, 800),
         });
         mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
         mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
-      } catch (audioErr) {
-        console.error('Audio generation failed:', audioErr);
-        // Graceful fallback to text
-        result.textOutput = `Voice generation failed. Here is the script instead:\n\n${finalPromptForModel}`;
-        extraMeta.note = 'Audio model call failed — returned as text instead.';
+      } catch (e) {
+        result.textOutput = `Audio generation unavailable. Script:\n\n${finalPromptForModel}`;
+        extraMeta.note = 'TTS temporarily unavailable — returned as text.';
       }
 
+    } else if (mediaTypeFinal === 'video') {
+      // Video is still emerging on Workers AI. Return rich prompt + note.
+      result.textOutput = `Video prompt (ready for external renderer):\n\n${finalPromptForModel}`;
+      extraMeta.note = 'Full video generation is in preview. Enhanced prompt returned.';
+      extraMeta.videoPrompt = finalPromptForModel;
+
     } else {
-      // Pure text / script / storyboard — just return the rich output
       result.textOutput = finalPromptForModel;
     }
 

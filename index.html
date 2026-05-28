@@ -12,6 +12,11 @@
     .glass { background: rgba(15,23,42,0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); }
     .neon { text-shadow: 0 0 20px #67e8f9; }
     .tab-btn.active { border-bottom: 4px solid #67e8f9; color: #67e8f9; font-weight: 600; }
+    .cockpit-btn { color: rgba(255,255,255,0.7); }
+    .cockpit-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .cockpit-btn.active { background: rgba(103,232,249,0.15); color: #67e8f9; border-left: 2px solid #67e8f9; padding-left: 14px; }
+    .aspect-btn.active, .style-btn.active { background: rgba(103,232,249,0.2); border-color: rgba(103,232,249,0.5); color: #67e8f9; }
+    kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
     /* Light scrollbar polish */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -37,45 +42,133 @@
     </header>
 
     <div class="grid grid-cols-12 gap-6">
-      <!-- LEFT AGENTS -->
+      <!-- LEFT COCKPIT -->
       <div class="col-span-2">
-        <div class="glass rounded-3xl p-6 sticky top-6">
-          <h2 class="text-sm font-semibold tracking-[2px] mb-4 text-cyan-400/70">CREATIVE PIPELINE</h2>
-          <div class="space-y-3 text-sm">
-            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
-              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span class="text-white/90">Concept Writer</span>
+        <div class="glass rounded-3xl p-4 sticky top-6 space-y-4">
+          <!-- Nav -->
+          <nav class="space-y-1">
+            <button onclick="cockpit('home')"     data-cockpit-btn="home"     class="cockpit-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition active">
+              <i class="fas fa-house w-4 text-center"></i><span>Studio</span>
+            </button>
+            <button onclick="cockpit('projects')" data-cockpit-btn="projects" class="cockpit-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition">
+              <i class="fas fa-folder w-4 text-center"></i><span>Projects</span>
+              <span id="projCount" class="ml-auto text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded-full">0</span>
+            </button>
+            <button onclick="cockpit('presets')"  data-cockpit-btn="presets"  class="cockpit-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition">
+              <i class="fas fa-sliders w-4 text-center"></i><span>Presets</span>
+            </button>
+            <button onclick="cockpit('trending')" data-cockpit-btn="trending" class="cockpit-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition">
+              <i class="fas fa-fire w-4 text-center text-orange-400"></i><span>Trending</span>
+            </button>
+            <button onclick="cockpit('history')"  data-cockpit-btn="history"  class="cockpit-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition">
+              <i class="fas fa-clock-rotate-left w-4 text-center"></i><span>History</span>
+            </button>
+          </nav>
+
+          <!-- Streak counter -->
+          <div class="border-t border-white/10 pt-4">
+            <div class="text-[10px] tracking-[2px] text-white/40 mb-2">STREAK</div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🔥</span>
+              <div>
+                <div class="text-2xl font-black leading-none"><span id="streakDays">0</span></div>
+                <div class="text-[10px] text-white/40">day streak</div>
+              </div>
             </div>
-            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
-              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span class="text-white/90">Cinematic Director</span>
-            </div>
-            <div class="flex items-center gap-3 px-3 py-2 rounded-2xl bg-white/5">
-              <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span class="text-white/90">Frame Editor</span>
-            </div>
-            <div class="mt-4 pt-4 border-t border-white/10 text-[10px] text-white/40 leading-tight">
-              Powered by<br>Cloudflare AI + Flux + Pixverse
-            </div>
+          </div>
+
+          <!-- Active project chip -->
+          <div class="border-t border-white/10 pt-4">
+            <div class="text-[10px] tracking-[2px] text-white/40 mb-2">ACTIVE PROJECT</div>
+            <button onclick="openProjectPicker()" class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-xs transition">
+              <span id="activeProjectName" class="truncate">Personal</span>
+              <i class="fas fa-chevron-down text-[10px] text-cyan-400"></i>
+            </button>
+          </div>
+
+          <!-- Daily drop teaser -->
+          <div class="border-t border-white/10 pt-4">
+            <div class="text-[10px] tracking-[2px] text-white/40 mb-2">DAILY DROP</div>
+            <button onclick="cockpit('trending')" class="w-full p-3 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 border border-purple-400/30 hover:scale-[1.02] transition text-left">
+              <div id="dailyDropTitle" class="text-[11px] font-bold leading-tight">Loading…</div>
+              <div class="text-[9px] text-white/50 mt-1">Tap to claim</div>
+            </button>
+          </div>
+
+          <div class="border-t border-white/10 pt-3 text-[9px] text-white/30 leading-tight">
+            Powered by<br>Cloudflare AI · Flux · Kimi
           </div>
         </div>
       </div>
 
       <!-- CENTER STUDIO -->
       <div class="col-span-7 space-y-6">
-        <!-- Example Prompts -->
-        <div class="flex flex-wrap gap-2">
-          <button onclick="usePrompt(this)" class="px-5 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-full border border-cyan-400/30">Lone samurai neon rain</button>
-          <button onclick="usePrompt(this)" class="px-5 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-full border border-cyan-400/30">Flying cars cyberpunk city</button>
-          <button onclick="usePrompt(this)" class="px-5 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-full border border-cyan-400/30">Dragon misty mountains</button>
-          <button onclick="usePrompt(this)" class="px-5 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-full border border-cyan-400/30">Astronaut alien planet</button>
+        <!-- Workflow bar: Aspect + Style -->
+        <div class="glass rounded-3xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-[10px] tracking-[2px] text-cyan-400/70 font-semibold">ASPECT</div>
+            <div class="text-[10px] text-white/30" id="dimsLabel">1024×576</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="pickAspect('16:9', this)" data-aspect="16:9" class="aspect-btn active px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="YouTube · Cinematic">
+              <i class="far fa-square mr-1"></i>16:9 <span class="text-white/40 text-[10px]">YT</span>
+            </button>
+            <button onclick="pickAspect('9:16', this)" data-aspect="9:16" class="aspect-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="Reels · TikTok · Shorts">
+              📱 9:16 <span class="text-white/40 text-[10px]">Reels</span>
+            </button>
+            <button onclick="pickAspect('1:1', this)" data-aspect="1:1" class="aspect-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="Instagram square">
+              ⬛ 1:1 <span class="text-white/40 text-[10px]">IG</span>
+            </button>
+            <button onclick="pickAspect('4:5', this)" data-aspect="4:5" class="aspect-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="Instagram portrait">
+              📷 4:5 <span class="text-white/40 text-[10px]">IG-P</span>
+            </button>
+            <button onclick="pickAspect('21:9', this)" data-aspect="21:9" class="aspect-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="Anamorphic / banner">
+              🎞 21:9 <span class="text-white/40 text-[10px]">Anam</span>
+            </button>
+            <button onclick="pickAspect('2:3', this)" data-aspect="2:3" class="aspect-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition" title="Pinterest · Poster">
+              📌 2:3 <span class="text-white/40 text-[10px]">Pin</span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <div class="text-[10px] tracking-[2px] text-cyan-400/70 font-semibold">STYLE</div>
+            <button onclick="clearStyle()" class="text-[10px] text-white/30 hover:text-cyan-400">Reset</button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="pickStyle('cinematic', this)" data-style="cinematic" class="style-btn active px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🎬 Cinematic</button>
+            <button onclick="pickStyle('photoreal', this)" data-style="photoreal" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">📸 Photoreal</button>
+            <button onclick="pickStyle('anime', this)" data-style="anime" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🖌 Anime</button>
+            <button onclick="pickStyle('3d', this)" data-style="3d" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🧊 3D Render</button>
+            <button onclick="pickStyle('vaporwave', this)" data-style="vaporwave" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🌆 Vaporwave</button>
+            <button onclick="pickStyle('noir', this)" data-style="noir" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🕵 Noir</button>
+            <button onclick="pickStyle('ghibli', this)" data-style="ghibli" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🌿 Ghibli</button>
+            <button onclick="pickStyle('product', this)" data-style="product" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">🛍 Product</button>
+            <button onclick="pickStyle('logo', this)" data-style="logo" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">⭐ Logo / Vector</button>
+            <button onclick="pickStyle('thumbnail', this)" data-style="thumbnail" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">▶️ YT Thumbnail</button>
+            <button onclick="pickStyle('concept', this)" data-style="concept" class="style-btn px-3 py-1.5 text-xs rounded-xl bg-slate-800 border border-white/10 transition">⚔ Concept Art</button>
+          </div>
         </div>
 
         <!-- Prompt -->
-        <div class="glass rounded-3xl p-8">
-          <textarea id="prompt" rows="4" maxlength="1500" class="w-full bg-transparent text-lg focus:outline-none" placeholder="Describe your cinematic vision..."></textarea>
-          <div class="flex gap-4 mt-6">
-            <button onclick="generate('image')" class="flex-1 py-7 text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 rounded-3xl hover:scale-105 transition">📸 Generate Cinematic Image</button>
+        <div class="glass rounded-3xl p-6">
+          <textarea id="prompt" rows="4" maxlength="1500" class="w-full bg-transparent text-lg focus:outline-none placeholder-white/30" placeholder="Describe what you want to create… (or ask NOVA in the chat for help)"></textarea>
+          <div class="flex flex-wrap items-center gap-2 mt-2 mb-4 text-[10px] text-white/40">
+            <span id="activeAspectChip" class="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300">16:9</span>
+            <span id="activeStyleChip" class="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-400/30 text-purple-300">cinematic</span>
+            <span class="ml-auto" id="charCount">0 / 1500</span>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="generate('image')" id="generateBtn" class="flex-1 py-5 text-base font-bold bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-2xl hover:scale-[1.02] transition flex items-center justify-center gap-2">
+              <i class="fas fa-bolt"></i>
+              <span>Generate</span>
+              <span class="text-[10px] opacity-60 ml-1"><kbd class="px-1 py-0.5 bg-black/30 rounded">⌘ ↵</kbd></span>
+            </button>
+            <button onclick="savePromptAsPreset()" title="Save current setup as a preset" class="px-4 py-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition">
+              <i class="fas fa-bookmark"></i>
+            </button>
+            <button onclick="randomPrompt()" title="Random cinematic prompt" class="px-4 py-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition">
+              <i class="fas fa-dice"></i>
+            </button>
           </div>
         </div>
 
@@ -108,10 +201,13 @@
           <div class="text-[10px] text-white/40 text-center mt-2">Powered by prompt engineering • Results saved to vault</div>
         </div>
 
-        <!-- Tabs -->
-        <div class="glass rounded-3xl p-6">
+        <!-- Cockpit panels (Projects / Presets / Trending / History) -->
+        <div id="cockpitPanel" class="hidden glass rounded-3xl p-6 min-h-[400px]"></div>
+
+        <!-- Tabs (still here for Home view) -->
+        <div id="homeTabs" class="glass rounded-3xl p-6">
           <div class="flex border-b border-gray-700 mb-6">
-            <button onclick="switchTab(0)" class="tab-btn active px-8 py-4">Generation History</button>
+            <button onclick="switchTab(0)" class="tab-btn active px-8 py-4">Recent Generations</button>
             <button onclick="switchTab(1)" class="tab-btn px-8 py-4">Gallery</button>
           </div>
           <div id="tabContent" class="min-h-[300px]"></div>
@@ -195,6 +291,21 @@
     </div>
   </div>
 
+  <!-- Project Picker Modal -->
+  <div id="projectModal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6">
+    <div class="glass rounded-3xl p-8 w-full max-w-lg">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">Switch Project</h2>
+        <button onclick="closeProjectPicker()" class="text-white/40 hover:text-white text-2xl">×</button>
+      </div>
+      <div id="projectList" class="space-y-2 mb-6 max-h-72 overflow-y-auto"></div>
+      <div class="flex gap-2">
+        <input id="newProjectInput" type="text" placeholder="New project name…" class="flex-1 bg-slate-900 rounded-2xl px-4 py-3 text-sm">
+        <button onclick="createProjectFromInput()" class="px-5 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-2xl font-medium text-sm">Create</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ---------------- State ----------------
     let history = [];
@@ -202,6 +313,354 @@
     let lastPrompt = '';
     let lastType = 'image';
     let generating = false;
+
+    // Studio settings -----------------------------------------------------------
+    const ASPECT_DIMS = {
+      '16:9': { w: 1024, h: 576 },
+      '9:16': { w: 576,  h: 1024 },
+      '1:1':  { w: 1024, h: 1024 },
+      '4:5':  { w: 832,  h: 1024 },
+      '21:9': { w: 1280, h: 544 },
+      '2:3':  { w: 768,  h: 1152 },
+    };
+    const STYLE_MODIFIERS = {
+      cinematic: 'cinematic masterpiece, dramatic lighting, film grain, highly detailed, anamorphic',
+      photoreal: 'photorealistic, hyper-detailed, natural lighting, 50mm lens, raw photo, high dynamic range',
+      anime:     'anime style, cel-shaded, vibrant colors, studio anime production, key visual',
+      '3d':      'octane render, 3d, subsurface scattering, hyperreal materials, sharp focus, 8k',
+      vaporwave: 'vaporwave aesthetic, neon pink and cyan, retro 80s, chrome reflections, palm trees, sunset',
+      noir:      'film noir, high contrast black and white, harsh shadows, venetian blinds, rain, fedora era',
+      ghibli:    'studio ghibli style, hand-painted, soft pastels, whimsical, miyazaki inspired, lush nature',
+      product:   'professional product photography, soft studio lighting, white background, sharp focus, commercial',
+      logo:      'minimalist vector logo, flat design, clean lines, geometric, single subject, white background',
+      thumbnail: 'youtube thumbnail style, bold composition, vivid saturated colors, dramatic centered subject, eye-catching',
+      concept:   'concept art, painterly, dramatic atmosphere, environmental storytelling, ArtStation trending',
+    };
+
+    let activeAspect = localStorage.getItem('aspect') || '16:9';
+    let activeStyle  = localStorage.getItem('style')  || 'cinematic';
+    let activeView   = 'home';
+
+    // Projects + presets --------------------------------------------------------
+    let projects = JSON.parse(localStorage.getItem('projects') || '["Personal"]');
+    let activeProject = localStorage.getItem('activeProject') || 'Personal';
+    let presets  = JSON.parse(localStorage.getItem('presets')  || '[]');
+
+    // Streak --------------------------------------------------------------------
+    function recordVisit() {
+      const today = new Date().toISOString().slice(0, 10);
+      const data = JSON.parse(localStorage.getItem('streak') || '{}');
+      if (data.lastDay === today) return data.days || 1;
+      const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      data.days = (data.lastDay === yest ? (data.days || 0) + 1 : 1);
+      data.lastDay = today;
+      localStorage.setItem('streak', JSON.stringify(data));
+      return data.days;
+    }
+    function getStreak() { return JSON.parse(localStorage.getItem('streak') || '{"days":0}').days || 0; }
+
+    // ---------------- Aspect / Style pickers ----------------
+    function pickAspect(aspect, el) {
+      document.querySelectorAll('.aspect-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      activeAspect = aspect;
+      localStorage.setItem('aspect', aspect);
+      updateAspectUI();
+    }
+
+    function pickStyle(style, el) {
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      activeStyle = style;
+      localStorage.setItem('style', style);
+      updateStyleUI();
+    }
+
+    function clearStyle() {
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.style-btn[data-style="cinematic"]').classList.add('active');
+      activeStyle = 'cinematic';
+      localStorage.setItem('style', 'cinematic');
+      updateStyleUI();
+    }
+
+    function updateAspectUI() {
+      const dims = ASPECT_DIMS[activeAspect] || ASPECT_DIMS['16:9'];
+      document.getElementById('dimsLabel').textContent = `${dims.w}×${dims.h}`;
+      document.getElementById('activeAspectChip').textContent = activeAspect;
+    }
+
+    function updateStyleUI() {
+      document.getElementById('activeStyleChip').textContent = activeStyle;
+    }
+
+    function updateStreakUI() {
+      const el = document.getElementById('streakDays');
+      if (el) el.textContent = getStreak();
+    }
+
+    // ---------------- Cockpit views ----------------
+    function cockpit(view) {
+      activeView = view;
+      document.querySelectorAll('.cockpit-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`[data-cockpit-btn="${view}"]`).classList.add('active');
+
+      const panel = document.getElementById('cockpitPanel');
+      const homeTabs = document.getElementById('homeTabs');
+      panel.classList.remove('hidden');
+      homeTabs.classList.add('hidden');
+
+      if (view === 'home') {
+        panel.classList.add('hidden');
+        homeTabs.classList.remove('hidden');
+        return;
+      }
+
+      if (view === 'projects') renderProjectsPanel();
+      if (view === 'presets') renderPresetsPanel();
+      if (view === 'trending') renderTrendingPanel();
+      if (view === 'history') renderHistoryPanel();
+    }
+
+    function renderProjectsPanel() {
+      const panel = document.getElementById('cockpitPanel');
+      panel.innerHTML = `
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-bold">Projects</h3>
+          <button onclick="createNewProject()" class="px-4 py-1.5 bg-cyan-500 rounded-xl text-sm font-medium">+ New</button>
+        </div>
+        <div class="space-y-2">
+          ${projects.map(p => `
+            <div onclick="switchProject('${p}')" class="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition ${p === activeProject ? 'bg-cyan-500/15 border border-cyan-400/30' : 'hover:bg-white/5'}">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-folder text-cyan-400"></i>
+                <span class="font-medium">${escapeHtml(p)}</span>
+              </div>
+              <span class="text-xs text-white/40">${history.filter(h => h.project === p).length} items</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderPresetsPanel() {
+      const panel = document.getElementById('cockpitPanel');
+      panel.innerHTML = `
+        <h3 class="text-xl font-bold mb-5">Saved Presets</h3>
+        ${presets.length === 0 ? `
+          <div class="text-white/40 text-sm">No presets yet. Generate something you like, then click the bookmark icon to save the exact aspect + style combo.</div>
+        ` : `
+          <div class="grid grid-cols-1 gap-3">
+            ${presets.map((p, i) => `
+              <div onclick="loadPreset(${i})" class="glass p-4 rounded-2xl cursor-pointer hover:ring-1 hover:ring-cyan-400/40 transition">
+                <div class="font-semibold">${escapeHtml(p.name)}</div>
+                <div class="text-xs text-white/50 mt-1">${p.aspect} · ${p.style}</div>
+                <div class="text-[11px] text-cyan-400 mt-2">Click to load</div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      `;
+    }
+
+    function renderTrendingPanel() {
+      const panel = document.getElementById('cockpitPanel');
+      const daily = getDailyDrop();
+      panel.innerHTML = `
+        <h3 class="text-xl font-bold mb-5">Trending & Daily Drop</h3>
+        <div class="glass p-5 rounded-2xl mb-6">
+          <div class="uppercase tracking-[2px] text-xs text-orange-400 mb-1">TODAY'S DROP</div>
+          <div class="font-bold text-lg">${escapeHtml(daily.title)}</div>
+          <div class="text-sm text-white/70 mt-1">${escapeHtml(daily.prompt)}</div>
+          <button onclick="useDailyDrop()" class="mt-4 px-5 py-2 bg-gradient-to-r from-orange-500 to-pink-500 rounded-xl text-sm font-medium">Use This Prompt</button>
+        </div>
+        <div class="text-sm text-white/40">More trending styles coming soon…</div>
+      `;
+    }
+
+    function renderHistoryPanel() {
+      const panel = document.getElementById('cockpitPanel');
+      panel.innerHTML = `
+        <h3 class="text-xl font-bold mb-5">Full History</h3>
+        <div class="space-y-3">
+          ${history.length === 0 ? '<div class="text-white/40">No generations yet.</div>' : ''}
+          ${history.map((h, i) => `
+            <div onclick="window.open('${h.url}')" class="flex gap-4 items-center glass p-3 rounded-2xl cursor-pointer hover:ring-1 hover:ring-cyan-400/40">
+              <img src="${h.url}" class="w-16 h-16 object-cover rounded-xl">
+              <div class="flex-1 min-w-0">
+                <div class="text-sm truncate">${escapeHtml(h.prompt)}</div>
+                <div class="text-[10px] text-white/40 mt-1">${new Date(h.ts).toLocaleDateString()} · ${h.aspect || ''} · ${h.style || ''}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // ---------------- Project helpers ----------------
+    function saveProjects() { localStorage.setItem('projects', JSON.stringify(projects)); }
+    function savePresets()  { localStorage.setItem('presets', JSON.stringify(presets)); }
+
+    function switchProject(name) {
+      activeProject = name;
+      localStorage.setItem('activeProject', name);
+      document.getElementById('activeProjectName').textContent = name;
+      closeProjectPicker();
+      cockpit('projects');
+    }
+
+    function createNewProject() {
+      const name = prompt('Project name:');
+      if (!name) return;
+      if (!projects.includes(name)) {
+        projects.push(name);
+        saveProjects();
+      }
+      switchProject(name);
+    }
+
+    function createProjectFromInput() {
+      const input = document.getElementById('newProjectInput');
+      const name = input.value.trim();
+      if (!name) return;
+      if (!projects.includes(name)) {
+        projects.push(name);
+        saveProjects();
+      }
+      input.value = '';
+      closeProjectPicker();
+      switchProject(name);
+    }
+
+    function openProjectPicker() {
+      const modal = document.getElementById('projectModal');
+      const list = document.getElementById('projectList');
+      list.innerHTML = projects.map(p => `
+        <div onclick="switchProject('${p}')" class="px-4 py-3 rounded-2xl cursor-pointer hover:bg-white/5 flex justify-between items-center ${p === activeProject ? 'bg-cyan-500/10 border border-cyan-400/30' : ''}">
+          <span>${escapeHtml(p)}</span>
+          ${p === activeProject ? '<span class="text-xs text-cyan-400">ACTIVE</span>' : ''}
+        </div>
+      `).join('');
+      modal.classList.remove('hidden');
+    }
+    function closeProjectPicker() {
+      document.getElementById('projectModal').classList.add('hidden');
+    }
+
+    function savePromptAsPreset() {
+      const name = prompt('Preset name:');
+      if (!name) return;
+      presets.unshift({
+        name,
+        aspect: activeAspect,
+        style: activeStyle,
+        prompt: document.getElementById('prompt').value.trim(),
+      });
+      presets = presets.slice(0, 30);
+      savePresets();
+      alert('Preset saved!');
+    }
+
+    function loadPreset(i) {
+      const p = presets[i];
+      activeAspect = p.aspect;
+      activeStyle = p.style;
+      document.getElementById('prompt').value = p.prompt || '';
+      updateAspectUI();
+      updateStyleUI();
+      // highlight the buttons
+      document.querySelectorAll('.aspect-btn').forEach(b => b.classList.toggle('active', b.dataset.aspect === p.aspect));
+      document.querySelectorAll('.style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === p.style));
+      cockpit('home');
+    }
+
+    // ---------------- Daily Drop ----------------
+    function getDailyDrop() {
+      const date = new Date().toISOString().slice(0, 10);
+      const saved = JSON.parse(localStorage.getItem('dailyDrop') || '{}');
+      if (saved.date === date) return saved;
+
+      const drops = [
+        { title: 'Neon Cyber-Noir', prompt: 'a lone detective in a rain-soaked neon alley, cyberpunk noir, high contrast, film grain' },
+        { title: 'Studio Ghibli Morning', prompt: 'a quiet village at sunrise, soft pastels, ghibli style, lush nature, peaceful' },
+        { title: 'Brutalist Future', prompt: 'massive brutalist concrete megastructure at dusk, dystopian, dramatic lighting' },
+        { title: 'Vaporwave Dream', prompt: 'retro 80s vaporwave sunset with chrome statues and palm trees, neon pink cyan' },
+        { title: 'Wong Kar-wai Melancholy', prompt: 'a woman in a red cheongsam standing in a rainy midnight diner, neon reflections' },
+      ];
+      const drop = drops[Math.floor(Math.random() * drops.length)];
+      const obj = { date, ...drop };
+      localStorage.setItem('dailyDrop', JSON.stringify(obj));
+      return obj;
+    }
+
+    function useDailyDrop() {
+      const drop = getDailyDrop();
+      document.getElementById('prompt').value = drop.prompt;
+      cockpit('home');
+    }
+
+    function updateDailyDropUI() {
+      const el = document.getElementById('dailyDropTitle');
+      if (el) el.textContent = getDailyDrop().title;
+    }
+
+    // ---------------- Project tagging on save ----------------
+    async function saveToVault(item) {
+      if (!currentUser) return;
+      item.project = activeProject;
+      try {
+        await fetch('/api/vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save', email: currentUser, item })
+        });
+      } catch (e) {}
+    }
+
+    // ---------------- Boot enhancements ----------------
+    function bootStudio() {
+      // Aspect buttons
+      document.querySelectorAll('.aspect-btn').forEach(b => {
+        if (b.dataset.aspect === activeAspect) b.classList.add('active');
+        b.onclick = () => pickAspect(b.dataset.aspect, b);
+      });
+      // Style buttons
+      document.querySelectorAll('.style-btn').forEach(b => {
+        if (b.dataset.style === activeStyle) b.classList.add('active');
+        b.onclick = () => pickStyle(b.dataset.style, b);
+      });
+
+      updateAspectUI();
+      updateStyleUI();
+      document.getElementById('activeProjectName').textContent = activeProject;
+      updateStreakUI();
+      updateDailyDropUI();
+
+      // Character counter
+      const promptEl = document.getElementById('prompt');
+      const countEl = document.getElementById('charCount');
+      promptEl.addEventListener('input', () => {
+        countEl.textContent = `${promptEl.value.length} / 1500`;
+      });
+
+      // Keyboard shortcut
+      document.addEventListener('keydown', e => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          generate('image');
+        }
+      });
+
+      // Boot streak
+      recordVisit();
+      updateStreakUI();
+
+      // Show first cockpit nav active
+      document.querySelector('[data-cockpit-btn="home"]').classList.add('active');
+    }
+
+    // Run boot after everything is defined
+    setTimeout(bootStudio, 50);
 
     // ---------------- Auth modal ----------------
     function showLogin() { document.getElementById('loginModal').classList.remove('hidden'); }
@@ -274,18 +733,29 @@
     async function generate(mode) {
       if (generating) return;
       const promptEl = document.getElementById('prompt');
-      const prompt = promptEl.value.trim();
-      if (!prompt) return alert('Please enter a prompt');
-      if (prompt.length < 3) return alert('Prompt is too short');
-      if (prompt.length > 1500) return alert('Prompt too long (max 1500 chars)');
+      const rawPrompt = promptEl.value.trim();
+      if (!rawPrompt) return alert('Please enter a prompt');
+      if (rawPrompt.length < 3) return alert('Prompt is too short');
+      if (rawPrompt.length > 1500) return alert('Prompt too long (max 1500 chars)');
+
+      // Compose final prompt: user text + active style modifier
+      const styleMod = STYLE_MODIFIERS[activeStyle] || '';
+      const finalPrompt = styleMod ? rawPrompt + ', ' + styleMod : rawPrompt;
+      const dims = ASPECT_DIMS[activeAspect] || ASPECT_DIMS['16:9'];
 
       generating = true;
       document.getElementById('loading').classList.remove('hidden');
-      document.getElementById('status').textContent = 'Generating cinematic image...';
+      document.getElementById('status').textContent =
+        'Generating ' + activeStyle + ' image · ' + activeAspect + '…';
 
       let data;
       try {
-        data = await postJson('/api/cinematic', { prompt, mode });
+        data = await postJson('/api/cinematic', {
+          prompt: finalPrompt,
+          mode,
+          width: dims.w,
+          height: dims.h,
+        });
       } catch (e) {
         data = { success: false, error: 'Network error' };
       } finally {
@@ -294,41 +764,49 @@
       }
 
       if (data.success) {
+        // Streak tick on every successful generation
+        recordVisit();
+        updateStreakUI();
+
         const content = document.getElementById('content');
         const mediaHTML = data.type === 'video'
-          ? '<video src="' + data.url + '" controls autoplay loop playsinline class="w-full h-full object-cover"></video>'
-          : '<img src="' + data.url + '" alt="generated" class="w-full h-full object-cover">';
+          ? '<video src="' + data.url + '" controls autoplay loop playsinline class="w-full h-full object-contain"></video>'
+          : '<img src="' + data.url + '" alt="generated" class="w-full h-full object-contain">';
 
         content.innerHTML =
           '<div class="relative w-full h-full group">' +
             mediaHTML +
+            '<div class="absolute top-3 left-3 px-2.5 py-1 text-[10px] bg-black/70 rounded-full border border-white/10 text-white/70">' +
+              activeAspect + ' · ' + activeStyle + ' · ' + escapeHtml(activeProject) +
+            '</div>' +
             '<div class="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">' +
               '<a href="' + data.url + '" download class="px-4 py-2 text-sm bg-black/70 hover:bg-black rounded-2xl border border-white/20 flex items-center gap-2">' +
                 '<i class="fas fa-download"></i> <span>Download</span>' +
               '</a>' +
+              '<button onclick="copyText(' + JSON.stringify(data.url) + ')" class="px-4 py-2 text-sm bg-black/70 hover:bg-black rounded-2xl border border-white/20 flex items-center gap-2">' +
+                '<i class="fas fa-link"></i> <span>Copy URL</span>' +
+              '</button>' +
             '</div>' +
           '</div>';
 
-        const vaultItem = { url: data.url, prompt: prompt.substring(0, 55), type: data.type, ts: Date.now() };
+        const vaultItem = {
+          url: data.url,
+          prompt: rawPrompt.substring(0, 80),
+          fullPrompt: rawPrompt,
+          type: data.type,
+          ts: Date.now(),
+          aspect: activeAspect,
+          style: activeStyle,
+          project: activeProject,
+        };
         history.unshift(vaultItem);
         renderHistory();
         renderVaultSidebar();
         await saveToVault(vaultItem);
 
-        lastPrompt = prompt;
+        lastPrompt = rawPrompt;
         lastType = data.type;
         document.getElementById('quick-actions').classList.remove('hidden');
-
-        if (!localStorage.getItem('r2_notified')) {
-          setTimeout(() => {
-            const note = document.createElement('div');
-            note.className = 'absolute top-4 left-4 px-3 py-1.5 text-[10px] bg-black/80 text-cyan-400 rounded-2xl border border-cyan-400/30';
-            note.innerHTML = 'Tip: For production, attach a custom domain to your R2 bucket';
-            content.appendChild(note);
-            setTimeout(() => note.remove(), 6500);
-          }, 1800);
-          localStorage.setItem('r2_notified', '1');
-        }
       } else {
         alert(data.error || data.message || 'Generation failed. Check your model access and R2 bucket.');
       }

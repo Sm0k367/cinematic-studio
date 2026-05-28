@@ -17,11 +17,29 @@ import {
 interface Body {
   prompt?: string;
   mode?: "image" | "video";
+  width?: number;
+  height?: number;
+}
+
+// Flux-1-schnell on Workers AI accepts arbitrary width/height between
+// these bounds. Anything outside gets clamped to a safe default.
+const MIN_DIM = 256;
+const MAX_DIM = 2048;
+const DEFAULT_W = 1024;
+const DEFAULT_H = 576;
+
+function clampDim(n: any, fallback: number): number {
+  const x = Math.round(Number(n));
+  if (!Number.isFinite(x)) return fallback;
+  return Math.max(MIN_DIM, Math.min(MAX_DIM, x));
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    const { prompt, mode = "image" } = await readJson<Body>(request);
+    const body = await readJson<Body>(request);
+    const { prompt, mode = "image" } = body;
+    const width = clampDim(body.width, DEFAULT_W);
+    const height = clampDim(body.height, DEFAULT_H);
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
       return badRequest("Prompt is required (min 3 chars)");
@@ -55,13 +73,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    // Default: image (Flux-1-schnell)
+    // Default: image (Flux-1-schnell). The UI now composes style modifiers
+    // client-side, so we pass the prompt through verbatim and only honor the
+    // requested aspect via width/height.
     const imageResult: any = await env.AI.run(
       "@cf/black-forest-labs/flux-1-schnell",
       {
-        prompt: `${prompt}, cinematic masterpiece, dramatic lighting, film grain, highly detailed`,
-        width: 1024,
-        height: 576,
+        prompt,
+        width,
+        height,
       }
     );
 

@@ -1,7 +1,6 @@
 /**
- * Epic Tech AI Cinematic Studio
- * Reliable, premium cinematic image generation
- * Uses only stable Cloudflare models
+ * Epic Tech AI Cinematic Studio - Reliable Backend
+ * Uses only stable, available Cloudflare models
  */
 
 interface Env {
@@ -14,40 +13,54 @@ export async function onRequestPost(context: EventContext<Env>) {
 
   try {
     const body = await request.json();
-    const userPrompt = (body.prompt || '').trim();
+    const userPrompt = body.prompt?.trim();
 
-    if (!userPrompt || userPrompt.length < 8) {
-      return new Response(JSON.stringify({ error: "Please enter a more detailed prompt" }), { status: 400 });
+    if (!userPrompt || userPrompt.length < 5) {
+      return new Response(JSON.stringify({ error: "Prompt too short" }), { status: 400 });
     }
 
-    // Light cinematic enhancement (no heavy LLM to avoid model errors)
-    const enhancedPrompt = `${userPrompt}, cinematic masterpiece, film still, dramatic lighting, highly detailed, professional photography, anamorphic lens, moody atmosphere`;
+    // 1. Writer Agent (reliable model)
+    const writerResponse = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
+      messages: [
+        { role: "system", content: "You are a world-class cinematic screenwriter." },
+        { role: "user", content: `Write a vivid, cinematic scene description for this idea: "${userPrompt}". Keep it under 60 words, focus on atmosphere, lighting and mood.` }
+      ],
+      max_tokens: 200,
+      temperature: 0.75,
+    });
+    const writerText = writerResponse?.response || "A powerful cinematic scene unfolds.";
 
-    // Generate with the most reliable image model
+    // 2. Director Agent
+    const directorResponse = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
+      messages: [
+        { role: "system", content: "You are an award-winning cinematographer." },
+        { role: "user", content: `Turn this scene into a highly optimized prompt for FLUX image generation:\n\n${writerText}\n\nAdd lens, lighting, color grade and cinematic details. Max 65 words.` }
+      ],
+      max_tokens: 180,
+      temperature: 0.65,
+    });
+    const directorText = directorResponse?.response || writerText;
+
+    const finalPrompt = `${directorText}, cinematic masterpiece, film still, dramatic lighting, highly detailed, professional photography`;
+
+    // 3. Image Generation (most reliable model)
     const imageResponse = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
-      prompt: enhancedPrompt,
+      prompt: finalPrompt,
     });
 
     const imageBase64 = imageResponse?.image || imageResponse?.result?.image;
+    if (!imageBase64) throw new Error("Image generation failed");
 
-    if (!imageBase64) {
-      throw new Error("Image generation failed");
-    }
-
-    // Store in R2 if available
+    // 4. Store in R2
     let imageUrl = `data:image/jpeg;base64,${imageBase64}`;
 
     if (env.MEDIA) {
       try {
         const buffer = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
         const id = `cinematic/${Date.now()}.jpg`;
-        await env.MEDIA.put(id, buffer, {
-          httpMetadata: { contentType: "image/jpeg" },
-        });
+        await env.MEDIA.put(id, buffer, { httpMetadata: { contentType: "image/jpeg" } });
         imageUrl = `https://cinematic-ai-media.r2.dev/${id}`;
-      } catch (e) {
-        console.warn("R2 upload skipped");
-      }
+      } catch (e) {}
     }
 
     return new Response(JSON.stringify({
@@ -56,17 +69,18 @@ export async function onRequestPost(context: EventContext<Env>) {
         id: Date.now().toString(),
         prompt: userPrompt,
         imageUrl,
-        model: "FLUX.1-schnell",
+        agents: { writer: writerText, director: directorText },
+        model: "Kimi K2.6 + FLUX.1-schnell"
       }
     }), {
       headers: { "Content-Type": "application/json" }
     });
 
   } catch (error: any) {
-    console.error("Generation error:", error);
+    console.error("Pipeline error:", error);
     return new Response(JSON.stringify({
       error: "Generation failed",
-      details: error.message || "Please try a different prompt"
+      details: error.message
     }), { status: 500 });
   }
 }

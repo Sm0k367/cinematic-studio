@@ -9,10 +9,12 @@ interface Generation {
   prompt: string;
   imageUrl: string;
   imageBase64?: string;
+  mediaType?: 'image' | 'video' | 'audio' | 'text';
+  mediaUrl?: string;
   timestamp: string;
   agents?: {
-    writer: string;
-    director: string;
+    writer?: string;
+    director?: string;
   };
 }
 
@@ -24,6 +26,7 @@ interface AgentStage {
 
 const CinematicStudio: React.FC = () => {
   const [prompt, setPrompt] = useState('');
+  const [mode, setMode] = useState<'auto' | 'image' | 'video' | 'audio' | 'text'>('auto');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
   const [gallery, setGallery] = useState<Generation[]>([]);
@@ -114,7 +117,7 @@ const CinematicStudio: React.FC = () => {
       const res = await fetch('/api/cinematic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: finalPrompt })
+        body: JSON.stringify({ prompt: finalPrompt, mode })
       });
 
       if (!res.ok) {
@@ -131,9 +134,11 @@ const CinematicStudio: React.FC = () => {
       const gen = data.generation;
 
       // Prefer inline base64 for guaranteed display (fixes the "scavenger bird" / placeholder problem)
-      let displayUrl = gen.imageUrl;
-      if (gen.imageBase64) {
-        displayUrl = `data:image/jpeg;base64,${gen.imageBase64}`;
+      let displayUrl = gen.mediaUrl || gen.imageUrl;
+      if (gen.mediaBase64 || gen.imageBase64) {
+        const b64 = gen.mediaBase64 || gen.imageBase64;
+        const mime = gen.mediaType === 'audio' ? 'audio/wav' : 'image/jpeg';
+        displayUrl = `data:${mime};base64,${b64}`;
       }
 
       const newGen: Generation = {
@@ -159,8 +164,9 @@ const CinematicStudio: React.FC = () => {
 
       setShowInsights(true);
 
-      toast.success('Cinematic frame rendered', {
-        description: 'Writer → Director → Editor pipeline complete',
+      const mediaLabel = mode === 'video' ? 'Video sequence' : mode === 'audio' ? 'Audio' : mode === 'text' ? 'Script' : 'Cinematic frame';
+      toast.success(`${mediaLabel} generated`, {
+        description: 'Multi-agent pipeline complete',
       });
 
     } catch (error: any) {
@@ -294,6 +300,30 @@ const CinematicStudio: React.FC = () => {
         <div className="max-w-3xl mx-auto mb-10">
           <div className="prompt-card">
             <label className="prompt-label">DESCRIBE YOUR CINEMATIC VISION</label>
+
+            {/* Media Mode Selector — now supports any kind of generation */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[
+                { key: 'auto', label: 'Auto (Smart)' },
+                { key: 'image', label: 'Image' },
+                { key: 'video', label: 'Video' },
+                { key: 'audio', label: 'Voice / Audio' },
+                { key: 'text', label: 'Script / Story' },
+              ].map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => setMode(m.key as any)}
+                  disabled={isGenerating}
+                  className={`px-4 py-1.5 text-xs rounded-full border transition-all ${
+                    mode === m.key 
+                      ? 'bg-[#c5a46e] text-black border-[#c5a46e]' 
+                      : 'border-white/10 hover:border-[#c5a46e]/50 text-[#a1a1aa]'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
             
             <textarea
               value={prompt}
@@ -362,15 +392,31 @@ const CinematicStudio: React.FC = () => {
           <div className="preview-frame bg-black">
             <AnimatePresence mode="wait">
               {currentGeneration ? (
-                <motion.img 
-                  key={currentGeneration.id}
-                  src={currentImageSrc}
-                  alt={currentGeneration.prompt}
-                  initial={{ opacity: 0.6, scale: 0.985 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-                  className="w-full h-full object-cover"
-                />
+                currentGeneration.mediaType === 'video' ? (
+                  <video 
+                    key={currentGeneration.id}
+                    src={currentImageSrc} 
+                    controls 
+                    autoPlay 
+                    loop 
+                    className="w-full h-full object-cover"
+                  />
+                ) : currentGeneration.mediaType === 'audio' ? (
+                  <div className="flex flex-col items-center justify-center w-full h-full bg-black/60 p-12">
+                    <audio key={currentGeneration.id} src={currentImageSrc} controls className="w-full max-w-md" />
+                    <div className="text-xs text-[#a1a1aa] mt-4 tracking-widest">CINEMATIC VOICE / AUDIO</div>
+                  </div>
+                ) : (
+                  <motion.img 
+                    key={currentGeneration.id}
+                    src={currentImageSrc}
+                    alt={currentGeneration.prompt}
+                    initial={{ opacity: 0.6, scale: 0.985 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+                    className="w-full h-full object-cover"
+                  />
+                )
               ) : (
                 <div className="preview-empty">
                   <ImageIcon className="icon mx-auto" />

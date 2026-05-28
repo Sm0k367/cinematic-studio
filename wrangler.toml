@@ -10,11 +10,12 @@ binding = "AI"
 binding = "MEDIA"
 bucket_name = "cinematic-ai-media"
 
-# KV and Vectorize are commented out for free plan deployment.
-# Uncomment and fill in real IDs once you upgrade or create the resources.
+# KV and Vectorize bindings are disabled for now (free plan limitation).
+# When you upgrade or create the resources, uncomment and fill in the real IDs.
+
 # [[kv_namespaces]]
 # binding = "KV"
-# id = "your-kv-id-here"
+# id = "YOUR_KV_ID_HERE"
 
 # [[vectorize]]
 # binding = "MEMORY"

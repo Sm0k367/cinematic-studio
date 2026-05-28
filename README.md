@@ -100,6 +100,10 @@ under your Pages project → Settings → Builds & deployments:
 > That command is for **Workers**, not Pages. Either clear the field (Pages
 > auto-deploys static + Functions with zero config) or replace it with
 > `npx wrangler pages deploy .`.
+>
+> Also: the `name` field in `wrangler.toml` **must match your Pages project
+> name** (currently `cinematic-studio`). A mismatch causes Wrangler to fall
+> back to Workers mode and produce the same error.
 
 Cloudflare Pages auto-detects:
 - Static assets in the repo root (`index.html`, etc.)
@@ -107,6 +111,25 @@ Cloudflare Pages auto-detects:
 - Bindings + vars from `wrangler.toml`
 
 No build step is needed.
+
+#### Option C — GitHub Actions (recommended if the dashboard misbehaves)
+
+This repo ships `.github/workflows/deploy.yml` which deploys to Cloudflare
+Pages via the API on every push to `main`. Use this if the dashboard Git
+integration keeps running `npx wrangler deploy` despite your build config.
+
+One-time setup:
+
+1. Generate a Cloudflare API token at https://dash.cloudflare.com/profile/api-tokens
+   using the **"Cloudflare Pages — Edit"** template.
+2. Find your **Account ID** on the right sidebar of any dashboard page.
+3. In this GitHub repo: Settings → Secrets and variables → Actions →
+   New repository secret. Add:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+4. Disconnect Git in your Pages project (Settings → Builds & deployments →
+   Disconnect from Git) so the dashboard and the workflow don't race.
+5. Push to `main`. The action deploys.
 
 ### 4. Local dev
 

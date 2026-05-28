@@ -7,7 +7,11 @@
     "build": "echo 'No build step required. Cloudflare Pages serves index.html and functions/ directly.'",
     "deploy": "bash deploy.sh",
     "dev": "npx --yes wrangler@3 pages dev . --compatibility-date=2024-12-01",
-    "deploy:direct": "npx --yes wrangler@3 pages deploy . --project-name=epic-tech-ai-cinematic-studio --branch=main --commit-dirty=true",
-    "tail": "npx --yes wrangler@3 pages deployment tail --project-name=epic-tech-ai-cinematic-studio"
+    "deploy:direct": "npx --yes wrangler@3 pages deploy . --project-name=cinematic-studio --branch=main --commit-dirty=true",
+    "tail": "npx --yes wrangler@3 pages deployment tail --project-name=cinematic-studio"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20260528.1",
+    "wrangler": "^4.95.0"
   }
 }

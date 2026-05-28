@@ -1,0 +1,47 @@
+name: Deploy to Cloudflare Pages
+
+# Belt-and-suspenders deploy. Use this if the Cloudflare Pages dashboard Git
+# integration keeps running `npx wrangler deploy` (the Workers command) instead
+# of `npx wrangler pages deploy` (the Pages command). With this workflow, the
+# repo deploys itself via the Cloudflare API on every push to main and the
+# dashboard Git integration can be safely disconnected.
+#
+# Setup (one-time):
+#   1. Generate a Cloudflare API token (User → API Tokens → Create Token →
+#      template "Cloudflare Pages — Edit"). Copy the token.
+#   2. Find your account ID (dash.cloudflare.com → right sidebar → Account ID).
+#   3. In this GitHub repo: Settings → Secrets and variables → Actions → New
+#      repository secret. Add:
+#        - CLOUDFLARE_API_TOKEN
+#        - CLOUDFLARE_ACCOUNT_ID
+#   4. Push to main. Done.
+#
+# If you keep using the dashboard Git integration, ALSO disconnect it under
+# Pages project → Settings → Builds & deployments → Disconnect from Git, or
+# this workflow and the dashboard will both deploy and race each other.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Explicit Pages deploy command — never `wrangler deploy`.
+          command: pages deploy . --project-name=cinematic-studio --branch=main --commit-dirty=true
+          wranglerVersion: "3"

@@ -33,7 +33,7 @@ if grep -q "pub-YOUR-PUB-URL-HERE" wrangler.toml 2>/dev/null; then
   exit 1
 fi
 
-PROJECT_NAME="${PAGES_PROJECT:-epic-tech-ai-cinematic-studio}"
+PROJECT_NAME="${PAGES_PROJECT:-cinematic-studio}"
 BRANCH="${PAGES_BRANCH:-main}"
 
 echo "Project: $PROJECT_NAME"

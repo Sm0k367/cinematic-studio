@@ -10,13 +10,15 @@ binding = "AI"
 binding = "MEDIA"
 bucket_name = "cinematic-ai-media"
 
-[[kv_namespaces]]
-binding = "KV"
-id = "your-kv-id-here"   # Replace with your actual KV namespace ID
+# KV and Vectorize are commented out for free plan deployment.
+# Uncomment and fill in real IDs once you upgrade or create the resources.
+# [[kv_namespaces]]
+# binding = "KV"
+# id = "your-kv-id-here"
 
-[[vectorize]]
-binding = "MEMORY"
-index_name = "cinematic-memory-vault"
+# [[vectorize]]
+# binding = "MEMORY"
+# index_name = "cinematic-memory-vault"
 
 [vars]
 ENVIRONMENT = "production"

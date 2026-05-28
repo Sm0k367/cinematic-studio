@@ -11,7 +11,7 @@ pages_build_output_dir = "."
 # Create with: wrangler kv:namespace create CINEMATIC_KV
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "c734f05ba19e4797a285e668a2e08b86"
 
 # R2 bucket (generated images + videos)
 [[r2_buckets]]
@@ -30,7 +30,7 @@ binding = "AI"
 # Find this under: Cloudflare dashboard → R2 → cinematic-ai-media → Settings →
 #   "Public Development URL" (or attach a custom domain for production).
 [vars]
-PUBLIC_R2_BASE = "https://pub-YOUR-PUB-URL-HERE.r2.dev"
+PUBLIC_R2_BASE = "https://pub-4b62b56c14ec4f0a943609f1587fb190.r2.dev"
 
 [observability]
 enabled = true

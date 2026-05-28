@@ -28,14 +28,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         },
         { role: "user", content: message },
       ],
+      // Kimi K2.6 likes to dump a verbose reasoning_content trace alongside
+      // the actual reply. We don't want to leak that to the user.
     });
 
+    // Workers AI normalizes models to a few different response shapes. Kimi
+    // K2.6 returns OpenAI-style {choices:[{message:{content}}]}; some smaller
+    // models return {response: "..."}. Cover all the bases.
     const reply =
-      (typeof result === "string" && result) ||
+      result?.choices?.[0]?.message?.content ||
       result?.response ||
+      (typeof result === "string" ? result : "") ||
       result?.result ||
       "(no reply)";
-    return json({ success: true, reply });
+
+    return json({ success: true, reply: String(reply).trim() });
   } catch (e: any) {
     console.error("Chat error:", e);
     return json({

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Epic Tech AI Cinematic Studio</title>
-  <meta name="description" content="Premium AI cinematic image &amp; video studio powered by Cloudflare. Flux + Pixverse + Kimi.">
+  <meta name="description" content="Premium AI cinematic image studio powered by Cloudflare. Flux + Kimi.">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -75,8 +75,7 @@
         <div class="glass rounded-3xl p-8">
           <textarea id="prompt" rows="4" maxlength="1500" class="w-full bg-transparent text-lg focus:outline-none" placeholder="Describe your cinematic vision..."></textarea>
           <div class="flex gap-4 mt-6">
-            <button onclick="generate('image')" class="flex-1 py-7 text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 rounded-3xl hover:scale-105 transition">📸 Generate Image</button>
-            <button onclick="generate('video')" class="flex-1 py-7 text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 rounded-3xl hover:scale-105 transition">🎬 Generate Video (8s)</button>
+            <button onclick="generate('image')" class="flex-1 py-7 text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 rounded-3xl hover:scale-105 transition">📸 Generate Cinematic Image</button>
           </div>
         </div>
 
@@ -242,8 +241,7 @@
 
       generating = true;
       document.getElementById('loading').classList.remove('hidden');
-      document.getElementById('status').textContent =
-        mode === 'video' ? 'Generating 8s video... this may take ~30s' : 'Generating image...';
+      document.getElementById('status').textContent = 'Generating cinematic image...';
 
       let data;
       try {

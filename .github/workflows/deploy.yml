@@ -1,24 +1,16 @@
 name: Deploy to Cloudflare Pages
 
-# Belt-and-suspenders deploy. Use this if the Cloudflare Pages dashboard Git
-# integration keeps running `npx wrangler deploy` (the Workers command) instead
-# of `npx wrangler pages deploy` (the Pages command). With this workflow, the
-# repo deploys itself via the Cloudflare API on every push to main and the
-# dashboard Git integration can be safely disconnected.
+# Deploys to Cloudflare Pages on every push to main, or on demand via the
+# "Run workflow" button in the Actions tab.
 #
-# Setup (one-time):
-#   1. Generate a Cloudflare API token (User → API Tokens → Create Token →
-#      template "Cloudflare Pages — Edit"). Copy the token.
-#   2. Find your account ID (dash.cloudflare.com → right sidebar → Account ID).
-#   3. In this GitHub repo: Settings → Secrets and variables → Actions → New
-#      repository secret. Add:
-#        - CLOUDFLARE_API_TOKEN
-#        - CLOUDFLARE_ACCOUNT_ID
-#   4. Push to main. Done.
+# Required GitHub repo secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — https://dash.cloudflare.com/profile/api-tokens
+#                            ("Cloudflare Pages — Edit" template)
+#   CLOUDFLARE_ACCOUNT_ID  — dash.cloudflare.com → right sidebar → Account ID
 #
-# If you keep using the dashboard Git integration, ALSO disconnect it under
-# Pages project → Settings → Builds & deployments → Disconnect from Git, or
-# this workflow and the dashboard will both deploy and race each other.
+# Without these the deploy step fails fast with a clear message instead of
+# leaking a confusing wrangler error. Add the secrets, then re-run the
+# workflow from the Actions tab — no code change needed.
 
 on:
   push:
@@ -37,11 +29,61 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pre-flight — verify required secrets are configured
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=0
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::error title=Missing secret::CLOUDFLARE_API_TOKEN is not set."
+            echo "    Add it under: Settings → Secrets and variables → Actions"
+            echo "    Generate one: https://dash.cloudflare.com/profile/api-tokens"
+            echo "                  (use the 'Cloudflare Pages — Edit' template)"
+            missing=1
+          fi
+          if [ -z "$CF_ACCOUNT" ]; then
+            echo "::error title=Missing secret::CLOUDFLARE_ACCOUNT_ID is not set."
+            echo "    Add it under: Settings → Secrets and variables → Actions"
+            echo "    Find your Account ID: dash.cloudflare.com → right sidebar"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Once the secrets are added, just re-run this workflow from"
+            echo "the Actions tab — no commit needed."
+            exit 1
+          fi
+          echo "✅ Required secrets present."
+
+      - name: Pre-flight — fail loudly on placeholder config
+        run: |
+          if grep -q "YOUR_KV_NAMESPACE_ID" wrangler.toml; then
+            echo "::warning title=Placeholder KV id::wrangler.toml still has YOUR_KV_NAMESPACE_ID."
+            echo "    The deploy will succeed but /api/auth and /api/vault will fail at runtime."
+          fi
+          if grep -q "pub-YOUR-PUB-URL-HERE" wrangler.toml; then
+            echo "::warning title=Placeholder R2 URL::wrangler.toml still has pub-YOUR-PUB-URL-HERE."
+            echo "    The deploy will succeed but generated images won't load (broken URLs)."
+          fi
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Explicit Pages deploy command — never `wrangler deploy`.
+          # Explicit Pages deploy — never `wrangler deploy` (that's the Workers command).
           command: pages deploy . --project-name=cinematic-studio --branch=main --commit-dirty=true
           wranglerVersion: "3"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### ✅ Deployed to Cloudflare Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Live URL:** https://cinematic-studio.pages.dev" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If \`/api/cinematic\` returns errors:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Replace \`YOUR_KV_NAMESPACE_ID\` in \`wrangler.toml\` with your real KV id" >> $GITHUB_STEP_SUMMARY
+          echo "2. Replace \`pub-YOUR-PUB-URL-HERE.r2.dev\` with your R2 bucket's public URL" >> $GITHUB_STEP_SUMMARY
+          echo "3. Commit + push to redeploy" >> $GITHUB_STEP_SUMMARY

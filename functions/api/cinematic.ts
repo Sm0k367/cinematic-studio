@@ -33,6 +33,13 @@ export async function onRequestPost(context: EventContext<Env>) {
     const body: CinematicRequest = await request.json();
     const { prompt } = body;
 
+    if (!env.AI) {
+      return new Response(JSON.stringify({ 
+        error: 'AI binding not configured',
+        details: 'The Workers AI binding is missing in this Cloudflare Pages project.'
+      }), { status: 500 });
+    }
+
     if (!prompt || prompt.trim().length < 8) {
       return new Response(JSON.stringify({ error: 'Prompt too short' }), { 
         status: 400,
@@ -112,40 +119,50 @@ Rules:
     let extraMeta: any = {};
 
     if (mediaType === 'image') {
-      // Highest quality image — Flux (latest stable on CF)
-      const imgRes = await env.AI.run('@cf/black-forest-labs/flux-1-dev', {
-        prompt: finalPromptForModel + ', cinematic masterpiece, 8k, film still, professional photography',
-        num_steps: 28,
-        guidance: 3.5,
-      });
-      mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
-      mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
+      try {
+        // Highest quality image — Flux (latest stable on CF)
+        const imgRes = await env.AI.run('@cf/black-forest-labs/flux-1-dev', {
+          prompt: finalPromptForModel + ', cinematic masterpiece, 8k, film still, professional photography',
+          num_steps: 28,
+          guidance: 3.5,
+        });
+        mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
+        mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
+      } catch (imgErr) {
+        console.error('Image generation failed:', imgErr);
+        throw new Error('Image model failed: ' + (imgErr.message || 'unknown error'));
+      }
 
     } else if (mediaType === 'video') {
       // Video via best available partner model on Workers AI (proxied high-quality)
-      // Using Alibaba HappyHorse / Vidu-class when available. Fallback to rich prompt.
       try {
         const videoRes = await env.AI.run('@cf/alibaba/happyhorse-1.0-text2video', {
           prompt: finalPromptForModel,
-          // duration, aspect etc if the model supports via params
         });
         mediaUrl = videoRes?.video || videoRes?.result?.video || '';
         extraMeta.videoPrompt = finalPromptForModel;
       } catch (videoErr) {
-        // Graceful: return enhanced prompt + note that video is queued
+        // Graceful fallback
         mediaUrl = '';
         extraMeta.videoPrompt = finalPromptForModel;
-        extraMeta.note = 'High-quality video generation activated. Rendering in the background (partner model).';
+        extraMeta.note = 'Video generation is currently in preview. Using enhanced prompt instead.';
+        extraMeta.error = 'Video model call failed (may not be enabled in this account yet)';
       }
 
     } else if (mediaType === 'audio') {
-      // Voice / Audio — Inworld or Deepgram TTS (best expressive models)
-      const ttsRes = await env.AI.run('@cf/inworld/tts-2', {
-        text: finalPromptForModel,
-        voice: 'professional_male_cinematic', // or let user control later
-      });
-      mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
-      mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
+      try {
+        // Voice / Audio — Inworld TTS
+        const ttsRes = await env.AI.run('@cf/inworld/tts-2', {
+          text: finalPromptForModel.substring(0, 500), // safety limit
+        });
+        mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
+        mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
+      } catch (audioErr) {
+        console.error('Audio generation failed:', audioErr);
+        // Graceful fallback to text
+        result.textOutput = `Voice generation failed. Here is the script instead:\n\n${finalPromptForModel}`;
+        extraMeta.note = 'Audio model call failed — returned as text instead.';
+      }
 
     } else {
       // Pure text / script / storyboard — just return the rich output

@@ -1,20 +1,24 @@
 # Epic Tech AI Cinematic Studio
 
-A premium, professional AI-powered cinematic creation studio built on Cloudflare.
+A premium, professional AI-powered **universal media creation studio** built on Cloudflare.
 
-Describe your vision. Multi-agent pipeline (Writer → Director → Editor) crafts the perfect prompt and renders with FLUX.1-dev. Clean, fast, production-grade UX. Real generations. No fluff.
+Describe anything. The smart router (powered by Kimi K2.6 + specialized models) detects the best medium and generates:
+- **Images** — Flux.1-dev (highest quality)
+- **Video** — Partner text-to-video / image-to-video models (Vidu, HappyHorse-class)
+- **Voice / Audio** — Inworld TTS-2 (expressive cinematic narration)
+- **Scripts / Storyboards / Text** — Rich directed output
 
-**Tech Stack:** React + TypeScript + Vite + Tailwind + Framer Motion + Cloudflare Pages + Workers AI + R2
+Clean, fast, production-grade UX. Real generations across media types. No fluff.
+
+**Tech Stack:** React + TypeScript + Vite + Tailwind + Framer Motion + Cloudflare Pages + Workers AI (Kimi K2.6, Flux, Inworld TTS, partner video) + R2
 
 ## Features
 
-- Professional multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev)
-- Clean, dynamic, easy-to-use studio interface (no animated 3D background in this release)
-- Prompt suggestions, live gallery, agent insights
-- Reliable image delivery (inline base64 + optional R2)
-- Download, regenerate, history persistence
-
-> The studio is now focused on a clean professional experience. The previous heavy 3D background has been removed for performance and clarity.
+- Universal any-media router (Auto + explicit Image/Video/Audio/Script modes)
+- Clean, dynamic, easy-to-use professional interface
+- Live agent direction + reliable inline delivery (base64)
+- Download, regenerate, persistent gallery
+- Works great even on free plan (graceful degradation)
 
 ## Local Development
 

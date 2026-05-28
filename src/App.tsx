@@ -172,22 +172,19 @@ const CinematicStudio: React.FC = () => {
     } catch (error: any) {
       console.error('Generation error:', error);
 
-      // Professional fallback: still give the user a beautiful result using a high-quality placeholder
-      // (prevents the "wtf scavenger bird" experience). In real deployment this almost never triggers.
-      const fallbackGen: Generation = {
-        id: `fallback-${Date.now()}`,
-        prompt: finalPrompt,
-        imageUrl: `https://picsum.photos/id/1016/1600/900`, // reliable beautiful fallback
-        timestamp: new Date().toISOString(),
-      };
+      // Try to extract real backend error if available
+      let realError = error.message || 'Unknown error';
+      if (error.details) realError = error.details;
 
-      setCurrentGeneration(fallbackGen);
-      const updated = [fallbackGen, ...gallery.filter(g => g.id !== fallbackGen.id)].slice(0, 12);
-      persistGallery(updated);
-
-      toast.error('Pipeline hiccup', {
-        description: error.message || 'Using a curated fallback frame. Real generations will resume shortly.',
+      toast.error('Generation failed', {
+        description: realError,
+        duration: 8000,
       });
+
+      // Only use fallback image if we have no better info
+      // This prevents the "same image every time" problem the user reported
+      setIsGenerating(false);
+      return;
     } finally {
       setIsGenerating(false);
       // Reset stages after a beat

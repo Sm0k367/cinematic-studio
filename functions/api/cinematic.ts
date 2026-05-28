@@ -118,48 +118,42 @@ Rules:
     let mediaBase64 = '';
     let extraMeta: any = {};
 
+    // =====================================================
+    // SAFE ROUTING - Prioritize never crashing
+    // =====================================================
     const mediaTypeFinal = classification.mediaType || 'image';
 
-    if (mediaTypeFinal === 'image') {
-      try {
-        // Best current image model (Flux 2 series recommended)
-        const imgRes = await env.AI.run('@cf/blackforestlabs/flux-2-dev', {
-          prompt: finalPromptForModel + ', cinematic, highly detailed, film still',
-          num_steps: 25,
-          guidance: 3.5,
-        });
-        mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
-        mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
-      } catch (e) {
-        // Fallback to Schnell (faster, very reliable)
+    try {
+      if (mediaTypeFinal === 'image' || mediaTypeFinal === 'video') {
+        // Use the most reliable image model available
         const imgRes = await env.AI.run('@cf/blackforestlabs/flux-1-schnell', {
-          prompt: finalPromptForModel,
+          prompt: finalPromptForModel + (mediaTypeFinal === 'video' ? ' cinematic still frame' : ''),
         });
         mediaBase64 = imgRes?.image || imgRes?.result?.image || '';
         mediaUrl = mediaBase64 ? `data:image/jpeg;base64,${mediaBase64}` : '';
+        extraMeta.modelUsed = 'flux-1-schnell';
+
+      } else if (mediaTypeFinal === 'audio') {
+        try {
+          const ttsRes = await env.AI.run('@cf/deepgram/aura-2-en', {
+            text: finalPromptForModel.substring(0, 600),
+          });
+          mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
+          mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
+        } catch (audioErr) {
+          result.textOutput = finalPromptForModel;
+          extraMeta.note = 'Audio model unavailable — returned as text';
+        }
+
+      } else {
+        result.textOutput = finalPromptForModel;
       }
-
-    } else if (mediaTypeFinal === 'audio') {
-      try {
-        // Best current TTS - Deepgram Aura (very reliable partner model)
-        const ttsRes = await env.AI.run('@cf/deepgram/aura-2-en', {
-          text: finalPromptForModel.substring(0, 800),
-        });
-        mediaBase64 = ttsRes?.audio || ttsRes?.result?.audio || '';
-        mediaUrl = mediaBase64 ? `data:audio/wav;base64,${mediaBase64}` : '';
-      } catch (e) {
-        result.textOutput = `Audio generation unavailable. Script:\n\n${finalPromptForModel}`;
-        extraMeta.note = 'TTS temporarily unavailable — returned as text.';
-      }
-
-    } else if (mediaTypeFinal === 'video') {
-      // Video is still emerging on Workers AI. Return rich prompt + note.
-      result.textOutput = `Video prompt (ready for external renderer):\n\n${finalPromptForModel}`;
-      extraMeta.note = 'Full video generation is in preview. Enhanced prompt returned.';
-      extraMeta.videoPrompt = finalPromptForModel;
-
-    } else {
+    } catch (modelErr: any) {
+      console.error('Model call failed:', modelErr);
+      // Never let a model failure kill the whole request
       result.textOutput = finalPromptForModel;
+      extraMeta.note = 'Model call failed, returned prompt as text';
+      extraMeta.errorDetails = modelErr.message;
     }
 
     // Store in R2 when possible (for images/video)
@@ -209,11 +203,14 @@ Rules:
     });
 
   } catch (error: any) {
-    console.error('Cinematic pipeline error:', error);
+    console.error('Cinematic pipeline error (FULL):', error);
+
     return new Response(JSON.stringify({ 
       error: 'Generation pipeline failed',
       details: error?.message || String(error),
-      stack: error?.stack?.split('\n').slice(0, 5) // limited stack for debugging
+      // Send as much info as possible so user can debug
+      modelAttempted: 'various',
+      timestamp: new Date().toISOString()
     }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }

@@ -107,10 +107,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       { role: "user", content: message },
     ];
 
+    // NOTE: Kimi K2.6 emits a (hidden) reasoning_content trace before the
+    // visible content. Setting a tight max_tokens causes the model to burn
+    // the budget on reasoning and finish with finish_reason='length' and an
+    // EMPTY content string. We give it room to breathe — and let the model's
+    // default temperature do its thing — so replies actually arrive.
     const result: any = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
       messages,
-      max_tokens: mode === "prompt" ? 220 : 600,
-      temperature: mode === "prompt" ? 0.9 : 0.75,
     });
 
     // Kimi K2.6 returns OpenAI-shaped output.

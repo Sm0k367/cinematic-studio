@@ -211,8 +211,9 @@ Rules:
   } catch (error: any) {
     console.error('Cinematic pipeline error:', error);
     return new Response(JSON.stringify({ 
-      error: 'Generation pipeline failed', 
-      details: error.message 
+      error: 'Generation pipeline failed',
+      details: error?.message || String(error),
+      stack: error?.stack?.split('\n').slice(0, 5) // limited stack for debugging
     }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }

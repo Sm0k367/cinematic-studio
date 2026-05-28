@@ -11,10 +11,6 @@ binding = "KV"
 binding = "R2"
 bucket_name = "epic-ai-media"
 
-[[vectorize]]
-binding = "VECTORIZE"
-index_name = "character-memory"
-
 [ai]
 binding = "AI"
 

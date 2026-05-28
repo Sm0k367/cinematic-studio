@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Image, Download, RefreshCw, MessageCircle, Save, X } from 'lucide-react';
+import { Loader2, Download, MessageCircle, Save, X, Repeat, Maximize2 } from 'lucide-react';
 
 interface Generation {
   id: string;
@@ -23,7 +23,7 @@ const CinematicStudio: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [userId, setUserId] = useState('');
-  const [showViewer, setShowViewer] = useState(false);
+  const [_showViewer, _setShowViewer] = useState(false);
 
   // Persistent user ID for "accounts" + KV history
   useEffect(() => {
@@ -139,13 +139,6 @@ const CinematicStudio: React.FC = () => {
     setShowVault(false);
   };
 
-  // Full-screen cinematic viewer
-  const openViewer = () => {
-    if (currentGeneration) setShowViewer(true);
-  };
-
-  const closeViewer = () => setShowViewer(false);
-
   const createVariation = () => {
     if (currentGeneration) {
       handleGenerate(currentGeneration.prompt, { variation: true });
@@ -246,17 +239,28 @@ const CinematicStudio: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          {currentGeneration && (
-            <div className="flex justify-center gap-3 mt-4">
-              <button onClick={() => saveToVault(currentGeneration)} className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2">
-                <Save className="w-4 h-4" /> Save to Vault
-              </button>
-              <button onClick={() => { /* download logic */ }} className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2">
-                <Download className="w-4 h-4" /> Download
-              </button>
-              <button onClick={() => setCurrentGeneration(null)} className="px-5 py-2.5 rounded-2xl bg-white/10">New Vision</button>
-            </div>
-          )}
+           {currentGeneration && (
+             <div className="flex flex-wrap justify-center gap-3 mt-4">
+               <button onClick={() => saveToVault(currentGeneration)} className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2 hover:bg-white/15">
+                 <Save className="w-4 h-4" /> Save to Vault
+               </button>
+               <button 
+                 onClick={() => { /* download */ }}
+                 className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2 hover:bg-white/15"
+               >
+                 <Download className="w-4 h-4" /> Download
+               </button>
+               <button onClick={createVariation} className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2 hover:bg-white/15">
+                 <Repeat className="w-4 h-4" /> Variation
+               </button>
+               <button onClick={upscaleImage} className="px-5 py-2.5 rounded-2xl bg-white/10 flex items-center gap-2 hover:bg-white/15">
+                 <Maximize2 className="w-4 h-4" /> Upscale
+               </button>
+               <button onClick={() => setCurrentGeneration(null)} className="px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15">
+                 New Vision
+               </button>
+             </div>
+           )}
 
           {/* Agent Insights */}
           {currentGeneration?.agents && (

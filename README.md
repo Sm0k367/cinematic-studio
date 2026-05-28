@@ -70,20 +70,43 @@ in. Replace them with yours.
 
 ### 3. Deploy
 
-```bash
-# One-time
-wrangler login
+You have two options.
 
-# Deploy
-bash deploy.sh
-# or
-npm run deploy
-# or directly:
-wrangler pages deploy . --project-name=epic-tech-ai-cinematic-studio --branch=main --commit-dirty=true
+#### Option A — CLI (recommended, most reliable)
+
+```bash
+wrangler login         # one-time
+bash deploy.sh         # or: npm run deploy:direct
 ```
 
-`deploy.sh` refuses to push if it spots placeholder values, so you can't ship
-a broken config by accident.
+`deploy.sh` refuses to push if it spots placeholder KV / R2 values.
+
+#### Option B — Cloudflare dashboard auto-deploys from Git
+
+If you connect this repo via the Cloudflare dashboard, **set these exactly**
+under your Pages project → Settings → Builds & deployments:
+
+| Field                 | Value                       |
+| --------------------- | --------------------------- |
+| Framework preset      | **None**                    |
+| Build command         | *(leave blank)*             |
+| Build output directory| `/` *(or leave blank)*      |
+| Deploy command        | *(leave blank)*             |
+| Root directory        | *(leave blank)*             |
+
+> ⚠️ **Important:** If your Pages project's "Deploy command" is set to
+> `npx wrangler deploy`, builds will fail with
+> *"It looks like you've run a Workers-specific command in a Pages project."*
+> That command is for **Workers**, not Pages. Either clear the field (Pages
+> auto-deploys static + Functions with zero config) or replace it with
+> `npx wrangler pages deploy .`.
+
+Cloudflare Pages auto-detects:
+- Static assets in the repo root (`index.html`, etc.)
+- Pages Functions in `functions/`
+- Bindings + vars from `wrangler.toml`
+
+No build step is needed.
 
 ### 4. Local dev
 

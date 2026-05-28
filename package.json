@@ -4,13 +4,10 @@
   "private": true,
   "description": "Premium, minimal, self-contained AI cinematic image & video studio powered by Cloudflare.",
   "scripts": {
+    "build": "echo 'No build step required. Cloudflare Pages serves index.html and functions/ directly.'",
     "deploy": "bash deploy.sh",
-    "dev": "wrangler pages dev . --compatibility-date=2024-12-01",
-    "deploy:direct": "wrangler pages deploy . --project-name=epic-tech-ai-cinematic-studio --branch=main --commit-dirty=true",
-    "tail": "wrangler pages deployment tail --project-name=epic-tech-ai-cinematic-studio"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241218.0",
-    "wrangler": "^3.95.0"
+    "dev": "npx --yes wrangler@3 pages dev . --compatibility-date=2024-12-01",
+    "deploy:direct": "npx --yes wrangler@3 pages deploy . --project-name=epic-tech-ai-cinematic-studio --branch=main --commit-dirty=true",
+    "tail": "npx --yes wrangler@3 pages deployment tail --project-name=epic-tech-ai-cinematic-studio"
   }
 }

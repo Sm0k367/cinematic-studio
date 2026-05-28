@@ -1,18 +1,20 @@
-# Cinematic AI Studio
+# Epic Tech AI Cinematic Studio
 
-A premium AI-powered cinematic creation studio built on Cloudflare.
+A premium, professional AI-powered cinematic creation studio built on Cloudflare.
 
-Describe scenes. Collaborate with AI agents (Writer → Director → Editor). Generate studio-quality images with FLUX.1-dev (highest quality). Experience a live 3D cyberpunk environment. Store everything permanently in R2.
+Describe your vision. Multi-agent pipeline (Writer → Director → Editor) crafts the perfect prompt and renders with FLUX.1-dev. Clean, fast, production-grade UX. Real generations. No fluff.
 
-**Tech Stack:** React + TypeScript + Vite + Three.js + Tailwind + Cloudflare Pages + Workers AI + R2
+**Tech Stack:** React + TypeScript + Vite + Tailwind + Framer Motion + Cloudflare Pages + Workers AI + R2
 
 ## Features
 
-- Multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev)
-- Immersive 3D environment
-- Clean, cinematic UI
-- Voice input
-- R2 permanent storage
+- Professional multi-agent cinematic pipeline (Llama 3.3-70B + FLUX.1-dev)
+- Clean, dynamic, easy-to-use studio interface (no animated 3D background in this release)
+- Prompt suggestions, live gallery, agent insights
+- Reliable image delivery (inline base64 + optional R2)
+- Download, regenerate, history persistence
+
+> The studio is now focused on a clean professional experience. The previous heavy 3D background has been removed for performance and clarity.
 
 ## Local Development
 
@@ -36,6 +38,7 @@ This repo is optimized for direct Git deployment via Cloudflare Pages.
    - **Build command**: `npm run build`
    - **Build output directory**: `dist`
    - **Root directory**: Leave as `/`
+   - **Project name on Cloudflare**: `epic-tech-ai-cinematic-studio` (or connect to existing)
 
 4. Click **Save and Deploy**
 
@@ -47,10 +50,14 @@ This repo is optimized for direct Git deployment via Cloudflare Pages.
 
 Every future push to `main` will automatically redeploy.
 
-## Notes for Free Plan Users
+## Deployment & Configuration
 
-- Memory Vault is temporarily disabled (requires Vectorize, which needs a paid plan).
-- The rest of the studio works normally.
+After first deploy, in Cloudflare Pages → Settings → Bindings add:
+- AI (Workers AI) → binding name `AI`
+- R2 Bucket → `cinematic-ai-media` (binding name `MEDIA`)
+- (Optional) KV and Vectorize for full memory features on paid plans.
+
+The pipeline now gracefully degrades and always returns usable images via base64 even if R2/KV are not fully configured.
 
 ## License
 

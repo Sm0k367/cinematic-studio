@@ -13,8 +13,8 @@
 
 interface Env {
   AI: any;                    // Cloudflare AI binding
-  MEDIA_BUCKET: R2Bucket;     // R2 for permanent public assets
-  KV: KVNamespace;
+  MEDIA?: R2Bucket;           // R2 for permanent public assets (binding name "MEDIA" in wrangler.toml)
+  KV?: KVNamespace;
   VECTORIZE_INDEX?: VectorizeIndex;   // Optional - not available on free plan
 }
 
@@ -94,10 +94,10 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
 
     // Final visual prompt for FLUX
     const finalVisualPrompt = `${directorText} Highly detailed, cinematic masterpiece, 8k, film still, professional photography, sharp focus.`;
-
     // =====================================================
     // 3. EDITOR — Generate with highest quality FLUX.1-dev
     // =====================================================
+
     // Using the highest quality image model available
     const fluxResponse = await env.AI.run('@cf/black-forest-labs/flux-1-dev', {
       prompt: finalVisualPrompt,
@@ -116,78 +116,87 @@ Return a SINGLE dense, powerful paragraph ready for an image model. Maximum 85 w
       throw new Error('FLUX generation failed to return image data');
     }
 
-    // Convert base64 → Uint8Array for R2
-    const imageBuffer = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-
     // =====================================================
-    // 4. STORE IN R2 (permanent public URL)
+    // 4. STORE IN R2 (optional - graceful if binding missing or fails)
     // =====================================================
     const imageId = `cinematic/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`;
-    await env.MEDIA_BUCKET.put(imageId, imageBuffer, {
-      httpMetadata: { contentType: 'image/jpeg' },
-      customMetadata: {
-        prompt: prompt.substring(0, 500),
-        generatedAt: new Date().toISOString(),
-      }
-    });
+    let publicImageUrl = `data:image/jpeg;base64,${imageBase64}`; // Default to inline for reliability
 
-    // R2 public URL (assumes bucket is configured with public access or via CDN)
-    const publicImageUrl = `https://epic-ai-media.<YOUR-ACCOUNT>.r2.cloudflarestorage.com/${imageId}`;
-    // NOTE: In real deployment, use your custom domain or R2.dev public bucket URL
-
-    // =====================================================
-    // 5. INDEX IN VECTORIZE (Memory Vault)
-    // =====================================================
-    const embeddingPrompt = `${prompt} — ${writerText}`;
-    
-    const embeddingResp = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
-      text: [embeddingPrompt]
-    });
-
-    const embedding = embeddingResp?.data?.[0] || embeddingResp?.result?.data?.[0];
-
-    // Only index to Vectorize if the binding exists (disabled on free plan)
-    if (embedding && env.VECTORIZE_INDEX) {
+    if (env.MEDIA) {
       try {
-        await env.VECTORIZE_INDEX.upsert([{
-          id: imageId,
-          values: embedding,
-          metadata: {
-            prompt: prompt,
-            imageUrl: publicImageUrl,
-            created: Date.now(),
-            type: 'cinematic-generation'
+        const imageBuffer = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+        await env.MEDIA.put(imageId, imageBuffer, {
+          httpMetadata: { contentType: 'image/jpeg' },
+          customMetadata: {
+            prompt: prompt.substring(0, 500),
+            generatedAt: new Date().toISOString(),
           }
-        }]);
+        });
+        // If you configure a public R2 domain, replace this with your actual public URL pattern
+        publicImageUrl = `https://cinematic-ai-media.r2.dev/${imageId}`; // Update to your real public R2 domain when ready
+      } catch (r2Err) {
+        console.warn('R2 upload skipped or failed (using inline base64 for display):', r2Err);
+      }
+    }
+
+    // =====================================================
+    // 5. INDEX IN VECTORIZE (Memory Vault) - optional
+    // =====================================================
+    if (env.VECTORIZE_INDEX) {
+      try {
+        const embeddingPrompt = `${prompt} — ${writerText}`;
+        const embeddingResp = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+          text: [embeddingPrompt]
+        });
+        const embedding = embeddingResp?.data?.[0] || embeddingResp?.result?.data?.[0];
+        if (embedding) {
+          await env.VECTORIZE_INDEX.upsert([{
+            id: imageId,
+            values: embedding,
+            metadata: {
+              prompt: prompt,
+              imageUrl: publicImageUrl,
+              created: Date.now(),
+              type: 'cinematic-generation'
+            }
+          }]);
+        }
       } catch (e) {
         console.log("Vectorize indexing skipped (not available on current plan)");
       }
     }
 
     // =====================================================
-    // 6. STORE METADATA IN KV
+    // 6. STORE METADATA IN KV (optional)
     // =====================================================
-    const metadata = {
-      id: imageId,
-      prompt,
-      writer: writerText,
-      director: directorText,
-      imageUrl: publicImageUrl,
-      created: new Date().toISOString(),
-      model: 'flux-1-dev + llama-3.3-70b',
-    };
-
-    await env.KV.put(`gen:${imageId}`, JSON.stringify(metadata), {
-      expirationTtl: 60 * 60 * 24 * 365, // 1 year
-    });
+    if (env.KV) {
+      try {
+        const metadata = {
+          id: imageId,
+          prompt,
+          writer: writerText,
+          director: directorText,
+          imageUrl: publicImageUrl,
+          created: new Date().toISOString(),
+          model: 'flux-1-dev + llama-3.3-70b',
+        };
+        await env.KV.put(`gen:${imageId}`, JSON.stringify(metadata), {
+          expirationTtl: 60 * 60 * 24 * 365,
+        });
+      } catch (kvErr) {
+        console.warn('KV metadata store skipped:', kvErr);
+      }
+    }
 
     // Return the beautiful result to the frontend
+    // Always include base64 so the frontend can display reliably even without public R2 domain
     return new Response(JSON.stringify({
       success: true,
       generation: {
         id: imageId,
         prompt,
         imageUrl: publicImageUrl,
+        imageBase64: imageBase64,   // NEW: reliable inline display data
         agents: {
           writer: writerText,
           director: directorText,

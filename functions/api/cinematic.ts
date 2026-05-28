@@ -66,7 +66,7 @@ async function handleCinematic(request: Request, env: Env) {
       return Response.json({
         success: true,
         type: "video",
-        url: `https://epic-ai-media.r2.dev/${filename}`,
+        url: `https://pub-4b62b56c14ec4f0a943609f1587fb190.r2.dev/${filename}`,
         prompt
       });
     } else {
@@ -82,7 +82,7 @@ async function handleCinematic(request: Request, env: Env) {
       return Response.json({
         success: true,
         type: "image",
-        url: `https://epic-ai-media.r2.dev/${filename}`,
+        url: `https://pub-4b62b56c14ec4f0a943609f1587fb190.r2.dev/${filename}`,
         prompt
       });
     }

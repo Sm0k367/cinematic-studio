@@ -20,8 +20,9 @@ Premium, minimal, self-contained AI cinematic image & video studio powered by Cl
 ### 1. Cloudflare prerequisites
 
 - Workers AI enabled on your account
-- Create an **R2 bucket** named `epic-ai-media`
-  - Go to the bucket → Settings → **Public Access** → Enable (or attach a custom domain)
+- Create an **R2 bucket** named `cinematic-ai-media`
+  - Enable **Public Development URL** (you'll get a `pub-....r2.dev` link)
+  - For production, connect a custom domain instead (the pub URL is rate-limited)
 - Create a **KV namespace** (any name)
   - Note the **ID** (you will need it)
 

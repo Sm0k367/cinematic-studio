@@ -8,8 +8,9 @@ pages_build_output_dir = "."
 # ====================== CONFIGURED ======================
 # KV namespace: configured with ID c734f05ba19e4797a285e668a2e08b86
 #
-# R2 bucket "epic-ai-media" must have Public Access enabled
-#   (or use a custom domain) for media URLs to work reliably.
+# R2 bucket "cinematic-ai-media" 
+# Public URL: https://pub-4b62b56c14ec4f0a943609f1587fb190.r2.dev
+# Note: This is the rate-limited dev URL. For production, add a custom domain.
 #
 # AI binding is automatic when Workers AI is enabled on your account.
 # ===========================================================
@@ -20,7 +21,7 @@ id = "c734f05ba19e4797a285e668a2e08b86"
 
 [[r2_buckets]]
 binding = "R2"
-bucket_name = "epic-ai-media"
+bucket_name = "cinematic-ai-media"
 
 [ai]
 binding = "AI"

@@ -21,7 +21,7 @@ echo "✅ Deploy complete!"
 echo "   Visit your Pages URL and enjoy the studio."
 echo ""
 echo "Next steps if you see errors:"
-echo "  • Make sure your R2 bucket 'epic-ai-media' is public"
+echo "  • Make sure your R2 bucket 'cinematic-ai-media' has Public Development URL enabled"
 echo "  • Confirm Workers AI is enabled on your account"
 echo "  • Check that the KV namespace ID is correct"
 
